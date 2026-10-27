@@ -308,14 +308,14 @@ npm test
 
 MIT，见 [LICENSE](./LICENSE)。
 
-## TODO：发布前还要 Fox 提供
+## 状态
 
-发布前补 repository：`package.json` 里暂时没有 `repository` / `homepage` / `bugs`，没有真实仓库地址就不编。本包当前版本是 `0.1.0`。
+已就绪：仓库地址、作者、主页、issue 地址都填在了 `package.json` 里，MIT 许可，`npm pack` 清单干净（不含 `test/`），自测 22 项全绿。
 
-- `repository`：GitHub 仓库地址（`https://github.com/<用户名>/dsh-willa-persona`）
-- `homepage`：仓库主页或文档页 URL
-- `bugs`：issue 地址（通常是仓库的 `/issues`）
-- `author`：姓名 + 邮箱（`{ "name": "...", "email": "..." }`）
-- git 提交身份：GitHub 用户名 + 邮箱（`git config user.name` / `user.email`）
+还没做的，按优先级：
 
-拿不到就一直空着，别填 `example.com` 或假账号。补齐后再跑自测和 `npm pack --dry-run`，然后才 `npm publish`。
+1. **发到 npm**：需要有 npm 账号和 token，跑 `npm publish --access public`；发之前先 `npm publish --dry-run` 看一眼清单。
+2. **干净环境实装一次**：拿一个空 profile 走 `dsh plugin add dsh-willa-persona`，确认工具挂上、人设注入、写一条记忆再读回来。
+3. **让别人能发现它**：DSH 没有官方插件市场，想被搜到得自己发一份索引 JSON（格式 1），把仓库地址和版本写进去。
+4. **README 配张图**：贴一下 `/memory` 看板和心账长什么样，比一大段文字有用。
+5. **CHANGELOG**：0.1.0 之后每次改动记一行。
