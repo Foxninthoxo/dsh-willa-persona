@@ -10,6 +10,7 @@ process.env.DSH_HOME = tmpHome
 
 const storage = require('../lib/storage.js')
 const plugin = require('../lib/index.js')
+const wander = require('../lib/wander.js')
 
 const results = []
 function ok(label, detail = '') {
@@ -114,12 +115,17 @@ async function main() {
   ok('require lib/index.js', 'name / apply / section / Config 都对')
 
   const pkg = require('../package.json')
-  assert.equal(pkg.repository, undefined)
-  assert.equal(pkg.homepage, undefined)
-  assert.equal(pkg.bugs, undefined)
-  const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8')
-  assert.ok(readme.includes('发布前补 repository'))
-  ok('package.json 占位字段', 'repository / homepage / bugs 已删，README 写明发布前补仓库')
+  if (pkg.repository) {
+    // 仓库字段是发布前补的；补了就得是正经地址，不能再是占位符。
+    assert.match(pkg.repository.url, /^git\+https:\/\/github\.com\/[^/]+\/[^/]+\.git$/)
+    assert.match(pkg.homepage, /^https:\/\/github\.com\/[^/]+\/[^/]+$/)
+    assert.match(pkg.bugs.url, /^https:\/\/github\.com\/[^/]+\/[^/]+\/issues$/)
+    ok('package.json 仓库字段', 'repository / homepage / bugs 已填且格式正确')
+  } else {
+    const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8')
+    assert.ok(readme.includes('发布前补 repository'))
+    ok('package.json 占位字段', 'repository / homepage / bugs 已删，README 写明发布前补仓库')
+  }
 
   const paths = storage.ensureStores()
   const ownerPath = storage.ownerPath()
@@ -150,7 +156,7 @@ async function main() {
   assert.equal(zeroCtx.sections.length, 1)
   assert.equal(zeroCtx.sections[0].name, 'willa:persona')
   const zeroToolNames = zeroCtx.tools.map((tool) => tool.name)
-  assert.equal(zeroToolNames.length, 13)
+  assert.equal(zeroToolNames.length, 16)
   assert.ok(zeroToolNames.includes('willa_set_owner'))
   assert.ok(zeroToolNames.includes('schedule_create'))
   assert.ok(zeroRuntime.scheduler instanceof plugin.ScheduleEngine)
@@ -161,7 +167,7 @@ async function main() {
   const zeroPrompt = zeroCtx.sections[0].text()
   assert.ok(zeroPrompt.includes('# 人设：Willa'))
   assert.ok(zeroPrompt.includes('我该怎么叫'))
-  ok('零配置启动', '13 个工具 + 人设段 + 定时 + 唤醒，四个存储文件自动建')
+  ok('零配置启动', '16 个工具 + 人设段 + 定时 + 唤醒，存储文件自动建')
 
   const ownerTool = zeroCtx.tools.find((tool) => tool.name === 'willa_set_owner')
   const emptyOwner = await ownerTool.execute({ name: '' })
@@ -309,6 +315,14 @@ async function main() {
   assert.equal(storage.getXinchang('u1'), null)
   ok('心账写 / 查 / 定格 / 删', '分数、条数、格子都正确')
 
+  const qqAdjusted = storage.adjustXinchang('qq=123456789', { delta: 1, reason: '前缀规范化', kind: 'happy' })
+  assert.equal(qqAdjusted.personId, '123456789')
+  assert.equal(storage.getXinchang('123456789').score, 1)
+  assert.equal(storage.getXinchang('qq=123456789').personId, '123456789')
+  assert.equal(storage.deleteXinchang('qq=123456789'), true)
+  assert.equal(storage.getXinchang('123456789'), null)
+  ok('心账 personId 归一', 'qq=123456789 / qq:123456789 都落到同一个 123456789')
+
   const mainCtx = makeCtx()
   const runtime = plugin.apply(mainCtx.ctx, {
     ownerName: '阿测',
@@ -347,12 +361,15 @@ async function main() {
     'willa_set_owner',
   ]
   assert.deepEqual(toolNames.slice(0, 9), coreNames)
-  assert.deepEqual(toolNames.slice(9), [
-    'schedule_create',
-    'schedule_list',
-    'schedule_update',
-    'schedule_delete',
-  ])
+  // 定时四个 + 爱好三个：顺序可能变，按集合比，别写死位置
+  const rest = toolNames.slice(9)
+  assert.equal(rest.length, 7)
+  for (const name of ['schedule_create', 'schedule_list', 'schedule_update', 'schedule_delete']) {
+    assert.ok(rest.includes(name), '缺定时工具：' + name)
+  }
+  for (const name of ['hobby_add', 'hobby_list', 'hobby_remove']) {
+    assert.ok(rest.includes(name), '缺爱好工具：' + name)
+  }
   for (const tool of mainCtx.tools) {
     assert.equal(tool.parameters.type, 'object')
     assert.equal(tool.output.schema.type, 'object')
@@ -527,7 +544,7 @@ async function main() {
 
   await wanderEngine.tick(fixed + 1_000)
   assert.equal(woke.length, 1)
-  assert.equal(woke[0].text, '醒醒，自己找点事做')
+  assert.ok(typeof woke[0].text === 'string' && woke[0].text.length > 0, '唤醒提示不能是空的')
   const wanderAfter = storage.loadWander()
   assert.equal(Date.parse(wanderAfter.nextAt) - (fixed + 1_000), 1_000)
   assert.equal(wanderAfter.lastResult, 'delivered')
@@ -581,15 +598,13 @@ async function main() {
     wanderEnabled: false,
   })
   assert.equal(conflictRuntime.scheduleToolNames.create, 'willa_schedule_create')
-  assert.deepEqual(
-    conflictCtx.tools.slice(9).map((tool) => tool.name),
-    [
-      'willa_schedule_create',
-      'willa_schedule_list',
-      'willa_schedule_update',
-      'willa_schedule_delete',
-    ],
-  )
+  const conflictRest = conflictCtx.tools.slice(9).map((tool) => tool.name)
+  for (const name of ['willa_schedule_create', 'willa_schedule_list', 'willa_schedule_update', 'willa_schedule_delete']) {
+    assert.ok(conflictRest.includes(name), '撞名后应该改前缀：' + name)
+  }
+  for (const name of ['hobby_add', 'hobby_list', 'hobby_remove']) {
+    assert.ok(conflictRest.includes(name), '爱好工具不该被撞名影响：' + name)
+  }
   conflictRuntime.stop()
   ok('宿主调度适配 / 重名避让', '有 ctx.schedule 就借，撞名整组换 willa_ 前缀')
 
@@ -619,6 +634,59 @@ async function main() {
   await reloadedRuntime.scheduler.remove(persistentId)
   reloadedRuntime.stop()
   ok('定时持久化（重新 require）', 'schedules.json 里的任务重载后还在')
+
+
+  // ---- 爱好与随机唤醒加权（2026-10-27 加） ----
+  {
+    const hobbyStore = storage.listHobbies()
+    assert.deepEqual(hobbyStore, [])
+
+    const added = storage.addHobby('读《海底两万里》，一次读一章', '一条鱼看海里的故事')
+    assert.equal(added.text, '读《海底两万里》，一次读一章')
+    assert.equal(storage.addHobby('读《海底两万里》，一次读一章').id, added.id) // 同名不重复加
+    const second = storage.addHobby('刷 B 站科技区，挑一个看完')
+    assert.equal(storage.listHobbies().length, 2)
+    const removed = storage.removeHobby(second.text)
+    assert.equal(removed.text, '刷 B 站科技区，挑一个看完')
+    assert.equal(storage.listHobbies().length, 1)
+    assert.equal(storage.removeHobby('不存在的爱好'), null)
+    ok('爱好存储：加 / 同名去重 / 删 / 不存在', '落盘到 storages/dsh-willa-persona/hobbies.json')
+
+    // 权重归一化
+    const w = wander.wanderWeights({ wanderWeightHobby: 1, wanderWeightTodo: 1, wanderWeightIdle: 2 })
+    assert.ok(Math.abs(w.idle - 0.5) < 1e-9)
+    assert.ok(Math.abs(w.hobby - 0.25) < 1e-9)
+    const wBad = wander.wanderWeights({ wanderWeightHobby: 'x', wanderWeightTodo: -1 })
+    assert.ok(Math.abs(wBad.hobby - 0.5) < 1e-9 && Math.abs(wBad.idle - 0.2) < 1e-9)
+    ok('唤醒权重：归一化 / 非法值回落', '默认 0.5 / 0.3 / 0.2')
+
+    // 200 次抽样看命中比例大致符合权重
+    const hobbies = [{ text: '读书' }]
+    const todos = [{ prompt: '把测试补完' }]
+    let hobbyHit = 0
+    let todoHit = 0
+    const base = { wanderWeightHobby: 1, wanderWeightTodo: 1, wanderWeightIdle: 1, wanderPrompt: '原始那句' }
+    for (let i = 0; i < 600; i += 1) {
+      const text = wander.buildWanderPrompt(base, { hobbies, todos })
+      if (text.includes('爱好') || text.includes('自己喜欢的') || text.includes('今天还没碰') || text.includes('闲着也是闲着')) hobbyHit += 1
+      if (text.includes('推进') || text.includes('还挂着') || text.includes('瞄一眼')) todoHit += 1
+    }
+    assert.ok(hobbyHit > 120 && hobbyHit < 380, '爱好句命中比例异常：' + hobbyHit)
+    assert.ok(todoHit > 60 && todoHit < 300, '待办句命中比例异常：' + todoHit)
+    ok('随机唤醒按权重挑', '600 次抽样：爱好 ' + hobbyHit + ' 次、待办 ' + todoHit + ' 次')
+
+    // 什么都没有时退回原始那句
+    const empty = wander.buildWanderPrompt({ wanderPrompt: '原始那句' }, { hobbies: [], todos: [] })
+    assert.ok(typeof empty === 'string' && empty.length > 0)
+    ok('唤醒兜底', '没爱好没待办时也有话说（' + empty.slice(0, 16) + '…）')
+
+    // 坏文件兜底
+    fs.writeFileSync(storage.hobbiesPath(), '{ broken json', 'utf8')
+    assert.deepEqual(storage.listHobbies(), [])
+    const backups = fs.readdirSync(path.dirname(storage.hobbiesPath())).filter((f) => f.includes('corrupt'))
+    assert.ok(backups.length >= 1)
+    ok('爱好文件坏了能兜底', '备份成 ' + backups[0])
+  }
 
   console.log(results.join('\n'))
 }

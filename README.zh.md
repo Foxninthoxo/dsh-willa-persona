@@ -3,6 +3,10 @@
 DeepSeek Harness（DSH）插件：注入「Willa / 大肥鱼」人设，附带本地记忆、心账、轻量定时和随机唤醒。
 默认不联网、不安装外部工具，也不附带任何私人数据。完整说明见 [README.md](./README.md)。
 
+## 爱好
+
+随机唤醒会按权重从「爱好 / 没做完的定时任务 / 发呆」里挑一句，措辞随机。爱好用 `hobby_add` / `hobby_list` / `hobby_remove` 维护，存在 `storages/dsh-willa-persona/hobbies.json`。
+
 ## 30 秒上手
 
 ```bash

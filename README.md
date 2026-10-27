@@ -51,6 +51,22 @@ dsh plugin --profile <profile> add "<本包目录的绝对路径>"
 - 本包不是 QQ、B 站、浏览器或桌面宠物插件；单独装它会多出定时和随机唤醒，但不会多出这些外部能力。
 - 安装后第一次启动会在 `<DSH_HOME>/storages/dsh-willa-persona/` 下创建四个空 JSON 文件（记忆、心账、定时、唤醒）；`owner.json` 在第一次问出称呼时生成。
 
+### 爱好（随机唤醒的素材）
+
+随机唤醒不再每次都念同一句，而是按权重在「爱好 / 没做完的定时任务 / 发呆」里挑，措辞也随机：
+
+- 「空下来了。你有个爱好：读《海底两万里》，一次读一章。想不想去动一下？」
+- 「屋里挺静的。『把测试补完』还挂着，去看看？」
+- 「这会儿没人找你。发呆、听听动静，都好。」
+
+爱好存在 `<DSH_HOME>/storages/dsh-willa-persona/hobbies.json`，可以用工具维护，也可以手写：
+
+```json
+{ "version": 1, "items": [{ "id": "h_1", "text": "读《海底两万里》，一次读一章", "why": "一条鱼看海里的故事" }] }
+```
+
+三个工具：`hobby_add`（记一条）、`hobby_list`（看看有哪些）、`hobby_remove`（删掉）。同名不会重复加。
+
 ## 配置
 
 配置都在插件行的 `config` 里，全部可选。
@@ -70,6 +86,9 @@ dsh plugin --profile <profile> add "<本包目录的绝对路径>"
 | `wanderMinMinutes` | `45` | 随机唤醒最短间隔（分钟，最小 1）。 |
 | `wanderMaxMinutes` | `120` | 随机唤醒最长间隔（分钟，自动不小于最小值）。 |
 | `wanderPrompt` | 见下 | 随机醒来时投给自己的那句话。 |
+| `wanderWeightHobby` | `0.5` | 随机唤醒时挑「爱好」的比重，和下面两项一起归一化。 |
+| `wanderWeightTodo` | `0.3` | 挑「还有没做完的定时任务」的比重。 |
+| `wanderWeightIdle` | `0.2` | 什么都推「发呆」的比重。 |
 
 `wanderPrompt` 默认是：
 
