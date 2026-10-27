@@ -1,0 +1,22 @@
+# dsh-willa-persona bundle patch
+#
+# 把「Willa 人设 + 本地记忆/心账」一行插进 profile 的插件树。
+# 安装（本地路径）：
+#   dsh plugin --profile <profile> add "<本包目录的绝对路径>"
+#
+# 注意：同一个 profile 不要同时启用另一个人设插件，否则两段 persona
+# 会一起注入。装本包前先把旧人设插件停用。
+#
+# 配置项见 README.md；这里只写最常用的几个，全部可选。
+# 不写 ownerName：留空才会先问对方怎么称呼，并记进 owner.json。
+- insert:
+    - id: willa-persona
+      name: dsh-willa-persona
+      config:
+        # 默认 false：不装插件、不连外部服务。
+        allowExtraTools: false
+        # 本包自带的轻量定时和随机唤醒；不想要就各自改成 false。
+        scheduleEnabled: true
+        wanderEnabled: true
+        wanderMinMinutes: 45
+        wanderMaxMinutes: 120

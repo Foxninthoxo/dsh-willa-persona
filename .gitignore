@@ -1,0 +1,27 @@
+# 依赖
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 本地数据（我这个包的存储都在 DSH 的 storages 下，但以防有人在本目录跑测试）
+storages/
+*.local.json
+owner.json
+memory.json
+xinchang.json
+schedules.json
+wander.json
+
+# 杂物
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 私有
+private/
+.env
+.env.*
