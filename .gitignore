@@ -12,6 +12,8 @@ memory.json
 xinchang.json
 schedules.json
 wander.json
+hobbies.json
+.skill-usage/
 
 # 杂物
 *.log

@@ -34,6 +34,8 @@ dsh plugin --profile <profile> add "<本包目录的绝对路径>"
 | `wanderEnabled` | `true` | `false` 时关闭随机唤醒。 |
 | `wanderMinMinutes` / `wanderMaxMinutes` | `45` / `120` | 随机唤醒间隔（分钟）。 |
 
+完整字段（`personaName`、`personaAlias`、`order`、`wanderPrompt`、三个唤醒权重等）见 [README.md](./README.md#配置)。
+
 ## 数据在哪
 
 默认在 `<DSH_HOME>/storages/dsh-willa-persona/`（未设置 `DSH_HOME` 时是 `~/.dsh/`）：
@@ -43,8 +45,20 @@ dsh plugin --profile <profile> add "<本包目录的绝对路径>"
 - `schedules.json`：定时任务
 - `wander.json`：下次唤醒时间
 - `owner.json`：对方称呼（首次设置后生成）
+- `hobbies.json`：爱好（第一次记爱好时生成）
 
 删掉这个目录就是清空。写入用临时文件 + fsync + rename，不留半截 JSON。
+
+## 常驻 skill 只用真用过的
+
+每轮上下文都会带常驻 skill 的目录，常驻多了白烧 token。用真实使用记录来定留哪几个：
+
+```bash
+node scripts/skill-usage.mjs --days 14   # 统计；默认写 ./.skill-usage/FREQUENCY.md
+node scripts/skill-lookup.mjs <关键词>    # 常驻 / archive / ~/.agents/skills-off 一起查
+```
+
+表里一次没用过的也会列出来（合计写 0）。低频的从 `skills/` 挪到 `skills-archive/`，`skill-lookup` 仍能找到；过一两周再跑一次看效果。`--events <文件>` 可把查询命中并进统计（不给就只统计 `skill` 工具调用）；缺文件是「还没建」、解析失败是「坏了」、有文件没查询是「正常 0」，别糊成一个 0。细节见 [README.md](./README.md#常驻-skill-按真实使用来定两个小脚本)。
 
 ## 支持的 DSH 版本
 

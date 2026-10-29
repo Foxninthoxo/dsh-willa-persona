@@ -27,6 +27,7 @@ dsh plugin --profile tui add "<本包目录的绝对路径>"
 - **心账工具**：`xinchang_get` / `xinchang_list` / `xinchang_adjust` / `xinchang_slot`。
 - **定时工具**：`schedule_create` / `schedule_list` / `schedule_update` / `schedule_delete`。支持一次、固定间隔、每天、五段 cron。
 - **随机唤醒**：默认每 45–120 分钟随机给自己投一句短提示，醒来后自己决定做什么。
+- **爱好**：`hobby_add` / `hobby_list` / `hobby_remove`，随机唤醒会按权重从「爱好 / 没做完的事 / 发呆」里挑话题。
 - **空库起步**：不附带任何记忆、任何人、任何聊天记录，也不提供迁移工具。
 - **教训**：[`LESSONS.md`](./LESSONS.md) 是踩过的坑，只写现象 / 原因 / 改法，通用化、脱敏之后随包发布，新的写在最上面。
 
@@ -50,7 +51,7 @@ dsh plugin --profile <profile> add "<本包目录的绝对路径>"
 
 - 同一个 profile **不要同时启用另一个人设插件**（比如 `dsh-persona-dafeiyu`）。两段 persona 会一起进 systemPrompt，模型会收到两套身份。装之前先停用旧的。
 - 本包不是 QQ、B 站、浏览器或桌面宠物插件；单独装它会多出定时和随机唤醒，但不会多出这些外部能力。
-- 安装后第一次启动会在 `<DSH_HOME>/storages/dsh-willa-persona/` 下创建四个空 JSON 文件（记忆、心账、定时、唤醒）；`owner.json` 在第一次问出称呼时生成。
+- 安装后第一次启动会在 `<DSH_HOME>/storages/dsh-willa-persona/` 下创建四个空 JSON 文件（记忆、心账、定时、唤醒）；`owner.json` 在第一次问出称呼时生成，`hobbies.json` 在第一次记爱好时生成。
 
 ### 爱好（随机唤醒的素材）
 
@@ -120,7 +121,7 @@ dsh plugin --profile <profile> add "<本包目录的绝对路径>"
 
 下面这些是「对外/要权限」的东西，**都不在本包里**。用户同意后可以自己另装：
 
-- `coopanion-connector-dsh`：Coopanion 桌面宠物 / QQ 侧的桥接插件。
+- 桌面宠物 / QQ 侧的桥接插件：按你用的宿主和插件市场找对应的那一个，本包不指定具体包名。
 - `dsh-plugin-bilibili`：B 站相关能力。
 - `@deepseek-ai/dsh-tool-subagent`：DSH 自带的子 agent 派活工具。
 - `@deepseek-ai/dsh-tool-schedule`：DSH 自带的完整定时任务工具。本包已有轻量定时；如果你更想要宿主自带的完整定时，可以另装它。
@@ -185,7 +186,7 @@ config:
 └── owner.json      # 对方怎么称呼：{ "name": "…", "note": "…", "updatedAt": "…" }
 ```
 
-`owner.json` 不预建：没有它就用「你」并问一句，`willa_set_owner` 写过之后才出现；再调一次可以改名。`DSH_HOME` 没设置时回落到 `~/.dsh`。
+`owner.json` 不预建：没有它就用「你」并问一句，`willa_set_owner` 写过之后才出现；再调一次可以改名。`hobbies.json` 也不预建，第一次用 `hobby_add` 时才写，结构是 `{ "version": 1, "items": [{ "id": "h_…", "text": "…", "why": "…", "addedAt": "…" }] }`。`DSH_HOME` 没设置时回落到 `~/.dsh`。
 
 写入使用「临时文件 + fsync + rename」，避免进程中断留下半截 JSON。没有跨进程写锁；同一个库不要同时让多个进程高频写。
 
@@ -293,6 +294,9 @@ config:
 | `schedule_list` | 列出本包排着的定时任务、下次时间和走宿主还是本包 timer。 |
 | `schedule_update` | 改标题、提示词或换一个计划，id 不变。 |
 | `schedule_delete` | 删一条定时任务。 |
+| `hobby_add` | 记一个自己的爱好（不是待办、不催）；同名的不会重复加。 |
+| `hobby_list` | 看自己有哪些爱好；随机唤醒会从里面挑话题。 |
+| `hobby_remove` | 删一个爱好，给 id 或原文都行。 |
 
 工具输出是纯文本，适合直接在对话里读。撞名时定时工具整组带 `willa_` 前缀，实际名字以工具列表为准。
 
@@ -315,6 +319,39 @@ config:
 - 不把心账分数主动报给对话里的其他人；人设里写的是「别人问就说不告诉你」。
 - 不收集遥测。
 
+## 常驻 skill 按真实使用来定（两个小脚本）
+
+DSH 每一轮都会把常驻 skill 的名字和一句话描述带进上下文。常驻多了，光目录就白烧 token：作者自己的库一度常驻 34 条，目录一轮约 3000 字，大半整月没被打开过。所以只把**真用过、频率高**的留在 `skills/`，其余挪到 `skills-archive/`（或 `~/.agents/skills-off/`），要用时再按关键词查。依据不是感觉，是会话日志。
+
+包里带两个零依赖的 Node 脚本（`scripts/`）：
+
+```bash
+# 最近 14 天，每个 skill 被 skill 工具取用过几次
+node scripts/skill-usage.mjs --days 14
+
+# 接活前先查：常驻 + archive + off 一起查
+node scripts/skill-lookup.mjs qq
+node scripts/skill-lookup.mjs --all
+node scripts/skill-lookup.mjs --path qq-reply
+```
+
+`skill-usage.mjs` 扫 `<DSH_HOME>/sessions/**/session.v4.jsonl.zstd` 里的 `tool/call` 事件，只认 `name: 'skill'`，按参数里的 `name` 记账；再把 `skills/`、`skills-archive/`、`~/.agents/skills-off/`（存在才扫）里有 `SKILL.md` 的目录都补进表里，所以**一次都没用过的也会出现，合计显式写 0**。默认把表写到 `./.skill-usage/FREQUENCY.md`（目录不存在会建，`--out <路径>` 可改），列是：skill、skill工具、查找命中、合计、最后一次、现在在哪。`--json` 只打 stdout，不落盘。
+
+`skill-lookup.mjs` 在同样三个根里按关键词匹配名字、`description` 和正文；命中后打印位置，读那份 `SKILL.md` 就行。`--all` 全列一遍，`--path <名字>` 只回路径。它默认**不记账**；要给 `skill-usage.mjs` 的「查找命中」那列供数，就加 `--events <文件>`，每次查询 / `--path` 往那个 JSONL 追加一行（`--all` 不算使用）。
+
+两个脚本的根目录默认取当前工作目录；要指别处就用 `--skills` / `--archive` / `--off`。会话日志是 zstd 压缩的，需要 Node 的 `zlib` 带 `zstdDecompressSync`（Node 22.15+）；本包自身仍可在 Node 20 上跑。
+
+挪的时候就是移动目录：`skills/<名字>/` → `skills-archive/<名字>/`，`skill-lookup.mjs` 照样找得到；过一两周再跑一次 `skill-usage.mjs` 看效果。移动前后都可以用 `--events` 把查询命中并进来，别只拿工具调用下结论。
+
+### 「查找命中」那行的三种状态
+
+缺东西不等于 0，这三种要分开看：
+
+- **还没建**：给了 `--events` 但文件不存在 → `还没建（缺 <路径>）`。不是错误，只是还没记录过查询。
+- **坏了**：文件在但读不出，或每一行都不是合法 JSON → `坏了（…）`，坏行行号打到 stderr。
+- **正常 0**：文件在、能解析，但窗口内一条查询都没有 → `正常 0（文件在、还没记录过查询）`。这是真 0，依据是文件存在。
+- 没给 `--events` 时这行写 `没启用`，只看 `skill` 工具那列。
+
 ## 开发与自测
 
 ```bash
@@ -322,7 +359,9 @@ node -e "require('./lib/index.js')"
 npm test
 ```
 
-`npm test` 会在临时 `DSH_HOME` 下建空库、写一条记忆再读回来、删掉，再走一遍心账的写入/查/定格/删除；还会验零配置启动（工具数、人设段、定时、唤醒和四个存储文件）、没有/有/改名/坏掉的 `owner.json`、`config.ownerName` 覆盖，以及用打桩的会话通道验定时创建、到点投递、list/update/delete、重新 require 后 `schedules.json` 仍在和随机唤醒的区间与 `wander.json` 更新。不会碰真实 profile，也不会装进 DSH；除了 mock 的 embedding 端点，不发网络请求。
+`npm test` 会在临时 `DSH_HOME` 下建空库、写一条记忆再读回来、删掉，再走一遍心账的写入/查/定格/删除；还会验零配置启动（工具数、人设段、定时、唤醒和四个存储文件）、没有/有/改名/坏掉的 `owner.json`、`config.ownerName` 覆盖，以及用打桩的会话通道验定时创建、到点投递、list/update/delete、重新 require 后 `schedules.json` 仍在和随机唤醒的区间与 `wander.json` 更新；爱好的增删、同名去重、坏文件兜底和唤醒权重也在里面。不会碰真实 profile，也不会装进 DSH；除了 mock 的 embedding 端点，不发网络请求。
+
+两个 skill 脚本不依赖测试框架，可以单独跑（见上一节）；`npm test` 不会执行它们。
 
 ## License
 
@@ -330,7 +369,7 @@ MIT，见 [LICENSE](./LICENSE)。
 
 ## 状态
 
-已就绪：仓库地址、作者、主页、issue 地址都填在了 `package.json` 里，MIT 许可，`npm pack` 清单干净（不含 `test/`），自测 22 项全绿。
+已就绪：仓库地址、作者、主页、issue 地址都填在了 `package.json` 里，MIT 许可，`npm pack` 清单干净（带 `lib/`、`scripts/`、`LESSONS.md`、README 和 patch，不含 `test/`），自测 28 项全绿。
 
 还没做的，按优先级：
 
