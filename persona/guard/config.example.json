@@ -10,5 +10,7 @@
   "notifyPrivate": "",
   "notifyGroup": "",
   "notifyUrl": "",
-  "notifyToken": ""
+  "notifyToken": "",
+  "bridgeEnsureScript": "",
+  "bridgeQrScript": ""
 }

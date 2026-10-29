@@ -27,7 +27,7 @@ dsh web: http://127.0.0.1:3080/?token=<每进程现生成>
 |---|---|
 | `open-harness.ps1` | 起服务、抓令牌地址、开页面。`-Ensure` 是看门模式（活着就退出）。 |
 | `restart.ps1` | 重启的**第一段**：只注册并触发一次性计划任务，自己不停任何进程。 |
-| `restart-worker.ps1` | 重启的**第二段**：由计划任务跑，停旧服务、等端口空、起新的、健康检查、按需报平安。 |
+| `restart-worker.ps1` | 重启的**第二段**：由计划任务跑，停旧服务、等端口空、起新的、健康检查、按配置拉回 OneBot 桥、按需报平安。 |
 | `install-guard.ps1` | 注册/更新看门任务 `DshGuard-Guard`（间隔默认 5 分钟，可配置）。 |
 | `autoconfig.ps1` | 从本机 OneBot 和 DSH profile 配置里读通知四项，自动生成 `dsh-guard.config.json`。 |
 | `uninstall-guard.ps1` | 删掉看门任务（顺手清掉残留的一次性重启任务）。 |
@@ -54,6 +54,8 @@ DSH 会话里启动的子进程会被放进一个 Windows **job 对象**，job �
 - **第二段**（`restart-worker.ps1`）由计划任务启动。计划任务的进程树挂在服务宿主（`svchost`）下面，**不在会话的 job 里**。它停得掉 web 宿主，停完自己还活着，可以继续把服务起回来。
 
 一句话：**停服务的人必须活在会杀掉服务的那层之外。**
+
+另外，重启后（web 健康检查通过后）会顺手把 OneBot 桥拉回 ready：默认从 `guard` 目录往上找 `skills\qq-bridge\ensure.ps1`，也可以用 `-BridgeEnsureScript` / 配置项 `bridgeEnsureScript` 指绝对路径。没配或找不到就跳过并写日志，桥起不来也不影响重启退出码。
 
 ## 装
 
@@ -154,12 +156,22 @@ powershell -ExecutionPolicy Bypass -File .\autoconfig.ps1 -DryRun
 | `-NotifyGroup` | 空 | `notifyGroup` | 同上，发到群 |
 | `-NotifyUrl` | 空 | `notifyUrl` | OneBot HTTP 服务地址；空 = 不发，由 `autoconfig.ps1` 或配置给 |
 | `-NotifyToken` | 空 | `notifyToken` | OneBot 的 accessToken，发 `Authorization: Bearer` |
+| `-BridgeEnsureScript`（仅 restart-worker） | 空（自动找） | `bridgeEnsureScript` | 可选。重启后拉起 OneBot 桥的 ensure 脚本；空 = 沿脚本目录往上找 `skills\qq-bridge\ensure.ps1` |
+| `-BridgeQrScript`（仅 restart-worker） | 空（自动找） | `bridgeQrScript` | 可选。ensure 失败时抓一次二维码的脚本；空 = 同样往上找 `skills\qq-bridge\grab-qr.ps1` |
 | `-Config` | 脚本同目录的 `dsh-guard.config.json` | —— | 配置文件路径。文件不存在就用默认值，不报错 |
 
 另外：
 
 - `open-harness.ps1`：`-Restart` 强制重启、`-Ensure` 看门模式、`-NoOpen` 只起服务不开浏览器。
 - `restart.ps1` / `install-guard.ps1` / `uninstall-guard.ps1`：`-DryRun` 只打印不执行。
+
+## 重启后把 OneBot 桥拉回来
+
+重启 dsh web 时，如果 OneBot 桥（SnowLuma / NapCat 之类）是从 DSH 会话里拉起的，它会落在会话的 Windows job 里，web 宿主一停就跟着被收掉。所以 `restart-worker.ps1` 在健康检查通过后会再跑一次桥的 ensure 脚本：
+
+- 路径：`bridgeEnsureScript` / `-BridgeEnsureScript`；不配就沿 `guard` 目录往上找 `skills\qq-bridge\ensure.ps1`，最多 6 层。
+- 失败：ensure 最多试两次（每次最多等 75 秒）；仍失败只写日志，再调一次 `grab-qr.ps1 -Notify` 抓屏提醒，**不影响重启退出码**。
+- 桥本来就在跑时 ensure 会立刻返回 0，不会重复起进程。
 
 ## 重启后自动报平安
 
@@ -260,7 +272,9 @@ powershell -ExecutionPolicy Bypass -File .\restart.ps1 -Config C:\cfg\prod.json 
   "notifyPrivate": "",
   "notifyGroup": "",
   "notifyUrl": "http://<OneBot host>:<port>",
-  "notifyToken": ""
+  "notifyToken": "",
+  "bridgeEnsureScript": "",
+  "bridgeQrScript": ""
 }
 ```
 
@@ -278,6 +292,8 @@ powershell -ExecutionPolicy Bypass -File .\restart.ps1 -Config C:\cfg\prod.json 
 | `notifyGroup` | `-NotifyGroup` | 报平安的群号；空 = 不发 |
 | `notifyUrl` | `-NotifyUrl` | OneBot HTTP 地址；空 = 不发，由 `autoconfig.ps1` 或配置给 |
 | `notifyToken` | `-NotifyToken` | OneBot accessToken；空 = 不带 Authorization 头 |
+| `bridgeEnsureScript` | `-BridgeEnsureScript` | 重启后拉起 OneBot 桥的 ensure 脚本；空 = 沿 `guard` 目录往上找 `skills\qq-bridge\ensure.ps1` |
+| `bridgeQrScript` | `-BridgeQrScript` | ensure 失败时抓屏的脚本；空 = 往上找 `skills\qq-bridge\grab-qr.ps1` |
 
 **空字符串 / 缺键 / 空文件都等于「没配」**，不会把参数清空。JSON 写坏了只在 stderr 报一条警告，然后按默认值继续跑，不会拦着你干活。
 

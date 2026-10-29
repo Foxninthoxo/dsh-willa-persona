@@ -15,6 +15,13 @@
   2 秒内先后结束的合成一条（最多 5 个），失败的那几条仍单独成条、成功的合并，带
   `详见 worker_list`。
 
+### dsh-guard（`persona/guard/`）
+- `restart-worker.ps1` 修「重启 dsh web 把 OneBot 桥一起带走」：停进程只认
+  `@deepseek-ai/dsh/lib/bin.js web`，排除命令行/父进程链上的 SnowLuma 与父进程为
+  DSH `runner.js` 的进程，只 `Stop-Process -Id`；web 健康后按 `bridgeEnsureScript`
+  （或沿脚本目录往上找 `skills\qq-bridge\ensure.ps1`）跑一次 ensure，失败重试一次，
+  仍失败只记日志并调一次 `grab-qr.ps1 -Notify`，重启退出码保持 0。
+
 ### 工程
 - 新增 `npm run selftest`（`scripts/selftest-door-worker.mjs`）：插件入口 1 项 + 门房 7 例 +
   worker 回执，只碰临时目录、假 dsh bin。

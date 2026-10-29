@@ -8,7 +8,12 @@
 #        所以它杀得掉 web 宿主，自己还活得下来，能把服务起回来。
 #
 # 流程：留 flag → 停旧 web 宿主 → 等端口空 → open-harness.ps1 -NoOpen 起回来
-#       → 健康检查 → 撤 flag。
+#       → 健康检查 → 按配置把 OneBot 桥拉回 ready → 撤 flag → 报平安。
+#
+# 2026-10-29 修「重启 dsh web 把 QQ 桥一起带走」：桥若是从 DSH 会话里被拉起的，
+# 会落在该会话 subprocess runner 的 kill-on-close job 里；停 web 宿主 → runner
+# 断管 → 桥一起被收掉。现在 web 起来、健康检查通过后，由本脚本（计划任务下，
+# 不在 DSH 的 job 里）调 ensure 脚本把桥拉回来；ensure 失败只记日志，不影响退出码。
 #
 # 日志：<LogDir>\dsh-restart-worker.log（每次追加，带时间戳）
 #
@@ -42,6 +47,12 @@ param(
 
     # OneBot 的 accessToken；配了就以 Authorization: Bearer <token> 发出去。
     [string]$NotifyToken = '',
+
+    # ---- 重启后顺手拉起 OneBot 桥（可选）。两个都空 = 不碰桥。 ----
+    # ensure 脚本负责把桥拉到 ready；grab 脚本只在 ensure 失败时抓一次登录二维码。
+    # 不写死路径：空着就沿脚本目录往上找 skills\qq-bridge\<name>。
+    [string]$BridgeEnsureScript = '',
+    [string]$BridgeQrScript = '',
 
     # 配置文件路径。不传就找 $PSScriptRoot\dsh-guard.config.json，没有就用默认值。
     [string]$Config = ''
@@ -141,6 +152,14 @@ if (-not $PSBoundParameters.ContainsKey('NotifyToken')) {
     $v = Config-Value $cfg 'notifyToken'
     if ($v) { $NotifyToken = [string]$v }
 }
+if (-not $PSBoundParameters.ContainsKey('BridgeEnsureScript')) {
+    $v = Expand-ConfigPath (Config-Value $cfg 'bridgeEnsureScript')
+    if ($v) { $BridgeEnsureScript = [string]$v }
+}
+if (-not $PSBoundParameters.ContainsKey('BridgeQrScript')) {
+    $v = Expand-ConfigPath (Config-Value $cfg 'bridgeQrScript')
+    if ($v) { $BridgeQrScript = [string]$v }
+}
 
 $configIsDefault = (-not $configUsed) -or ([System.IO.Path]::GetFullPath($configUsed).TrimEnd('\') -ieq [System.IO.Path]::GetFullPath($script:ConfigDefaultPath).TrimEnd('\'))
 
@@ -148,7 +167,9 @@ $here = $PSScriptRoot
 $log = Join-Path $LogDir 'dsh-restart-worker.log'
 $flagPath = Join-Path $StateDir 'restarting.flag'
 $stateFile = Join-Path $StateDir 'url.txt'
-$script:DshBinPattern = 'dsh[\\/]lib[\\/]bin\.js'
+# 只认 @deepseek-ai/dsh 的 bin.js + 独立 web 子命令；别放宽成所有 node.exe。
+# 后面 Get-DshWebProcess 还会叠加 SnowLuma 血缘 / runner.js 父进程两道排除。
+$script:DshBinPattern = '@deepseek-ai[\\/]dsh[\\/]lib[\\/]bin\.js'
 
 function Log([string]$m) {
     $line = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + '  ' + $m
@@ -158,6 +179,156 @@ function Log([string]$m) {
         }
         Add-Content -Path $log -Value $line -Encoding UTF8
     } catch { Write-Host $line }
+}
+
+# 桥脚本：配置优先；没配就沿脚本目录往上找 skills\qq-bridge\<name>。
+# 找不到返回空串 —— 桥是可选项，重启不能因为它失败。
+function Find-BridgeScript([string]$Configured, [string]$FileName) {
+    if ($Configured) {
+        $p = Expand-ConfigPath $Configured
+        if (Test-Path -LiteralPath $p -PathType Leaf) { return [System.IO.Path]::GetFullPath($p) }
+        return ''
+    }
+    $dir = $here
+    for ($i = 0; $i -lt 6; $i++) {
+        $c = Join-Path $dir ('skills\qq-bridge\' + $FileName)
+        if (Test-Path -LiteralPath $c -PathType Leaf) { return [System.IO.Path]::GetFullPath($c) }
+        $parent = Split-Path -Parent $dir
+        if (-not $parent -or $parent -eq $dir) { break }
+        $dir = $parent
+    }
+    return ''
+}
+
+$ensureScript = Find-BridgeScript $BridgeEnsureScript 'ensure.ps1'
+$grabScript   = Find-BridgeScript $BridgeQrScript 'grab-qr.ps1'
+
+function Get-ProcInfo([int]$id) {
+    if (-not $id) { return $null }
+    return (Get-CimInstance Win32_Process -Filter "ProcessId=$id" -ErrorAction SilentlyContinue)
+}
+
+# 父进程链校验：链上有 SnowLuma / 它的 index.mjs，就绝不碰这个进程。
+function Test-SnowLumaLineage($proc) {
+    $cur = $proc
+    for ($i = 0; $i -lt 8 -and $null -ne $cur; $i++) {
+        $cmd = [string]$cur.CommandLine
+        if ($cmd -match 'SnowLuma' -or $cmd -match '[\\/]index\.mjs') { return $true }
+        if (-not $cur.ParentProcessId) { break }
+        $cur = Get-ProcInfo ([int]$cur.ParentProcessId)
+    }
+    return $false
+}
+
+# 只认 dsh bin.js web：命令行 + SnowLuma 血缘 + 父进程不是 DSH runner。
+function Get-DshWebProcess {
+    foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue)) {
+        $cmd = [string]$p.CommandLine
+        if (-not $cmd) { continue }
+        if ($cmd -notmatch $script:DshBinPattern) { continue }
+        if ($cmd -notmatch '(\s|")web(\s|"|$)') { continue }
+        # 命令行里带 SnowLuma / index.mjs 的明确不是 dsh web。
+        if ($cmd -match 'SnowLuma' -or $cmd -match '[\\/]index\.mjs') { continue }
+        if (Test-SnowLumaLineage $p) { continue }
+
+        # 父进程是 DSH 的 runner.js 时不碰：那是工具调用里的子进程，
+        # 让它随自己的 job 收尾，别在这里硬杀。
+        $parent = Get-ProcInfo ([int]$p.ParentProcessId)
+        if ($parent -and ([string]$parent.CommandLine) -match '[\\/]runner\.js') { continue }
+
+        $p
+    }
+}
+
+# 带硬超时地跑一个 ps1，返回退出码和输出。超时会杀掉这个子进程。
+# 只用于 ensure / grab-qr 这种独立脚本；桥若已被拉起，杀 ensure 不会带走它。
+function Invoke-PsFile {
+    param(
+        [string]$Path,
+        [string[]]$ExtraArgs = @(),
+        [int]$TimeoutSeconds = 75
+    )
+    $argLine = '-NoProfile -ExecutionPolicy Bypass -File "' + $Path + '"'
+    foreach ($a in $ExtraArgs) { $argLine = $argLine + ' ' + $a }
+
+    # 用 .NET Process 而不是 Start-Process：带 -RedirectStandardOutput 的
+    # Start-Process 返回对象在进程退出后 $p.ExitCode 是空的（2026-10-29 实测），
+    # 会把 ensure 的 0 当成失败、白重试一轮。这里要能拿到真实退出码。
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'powershell.exe'
+    $psi.Arguments = $argLine
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    try {
+        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+        $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+    } catch { }
+
+    $proc = New-Object System.Diagnostics.Process
+    $proc.StartInfo = $psi
+    $lines = @()
+    $code = -1
+    try {
+        $null = $proc.Start()
+        # 先异步把两个流读起来，避免子进程写满管道后卡死。
+        $outTask = $proc.StandardOutput.ReadToEndAsync()
+        $errTask = $proc.StandardError.ReadToEndAsync()
+        if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+            try { $proc.Kill() } catch { }
+            try { $proc.WaitForExit(5000) | Out-Null } catch { }
+            $code = 124
+            $lines += ("超时 {0} 秒，已终止" -f $TimeoutSeconds)
+        } else {
+            $code = $proc.ExitCode
+        }
+        foreach ($task in @($outTask, $errTask)) {
+            try { $text = $task.Result } catch { $text = '' }
+            if ($text) { $lines += @($text -split "`r?`n") }
+        }
+    } catch {
+        $code = -1
+        $lines += $_.Exception.Message
+    } finally {
+        $proc.Dispose()
+    }
+    return [pscustomobject]@{ ExitCode = $code; Output = @($lines) }
+}
+
+# web 健康后把 OneBot 桥拉回 ready。幂等：桥已在跑时 ensure 会立刻 0，不动进程。
+# 失败只记日志；最后只允许再调一次 grab-qr -Notify，别的什么都不做。
+function Invoke-QQBridgeEnsure {
+    if (-not $ensureScript -or -not (Test-Path -LiteralPath $ensureScript -PathType Leaf)) {
+        Log ('worker: onebot-bridge: 没配或找不到 ensure 脚本，跳过（' + $(if ($BridgeEnsureScript) { $BridgeEnsureScript } else { '<none>' }) + '）')
+        return
+    }
+
+    try {
+        for ($attempt = 1; $attempt -le 2; $attempt++) {
+            Log ('worker: onebot-bridge: 第 ' + $attempt + ' 次 ensure（最多等 75 秒）')
+            $r = Invoke-PsFile -Path $ensureScript -ExtraArgs @('-WaitSeconds', '60') -TimeoutSeconds 75
+            foreach ($line in @($r.Output)) { if ([string]$line -ne '') { Log ('worker: onebot-bridge | ' + [string]$line) } }
+            if ($r.ExitCode -eq 0) {
+                Log 'worker: onebot-bridge: ready'
+                return
+            }
+            Log ('worker: onebot-bridge: ensure 返回 ' + $r.ExitCode + '（1=起不来/超时，2=要扫码，3=未授权自动启动）')
+            # 2/3 是「要人动手」，重试也不会好，直接去抓屏。
+            if ($r.ExitCode -eq 2 -or $r.ExitCode -eq 3) { break }
+        }
+
+        Log 'worker: onebot-bridge: 没 ready；只抓屏提醒，不再做别的'
+        if ($grabScript -and (Test-Path -LiteralPath $grabScript -PathType Leaf)) {
+            $g = Invoke-PsFile -Path $grabScript -ExtraArgs @('-Notify') -TimeoutSeconds 30
+            foreach ($line in @($g.Output)) { if ([string]$line -ne '') { Log ('worker: grab-qr | ' + [string]$line) } }
+            Log ('worker: grab-qr 返回 ' + $g.ExitCode)
+        } else {
+            Log ('worker: grab-qr 没配或找不到，跳过（' + $(if ($grabScript) { $grabScript } else { '<none>' }) + '）')
+        }
+    } catch {
+        Log ('worker: onebot-bridge: 出错（忽略）' + $_.Exception.Message)
+    }
 }
 
 # 发一条 QQ 通知。走 OneBot HTTP（POST /send_private_msg 或 /send_group_msg）。
@@ -233,17 +404,14 @@ try {
     # 给调用方留几秒把最后一句回复发出去（本进程不会被宿主杀，这里只是礼貌）。
     Start-Sleep -Seconds 4
 
-    # ---- 1. 停旧的 web 宿主（只认 dsh\lib\bin.js web 这一种命令行，不碰别的 node 进程）
-    $old = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object {
-        $_.CommandLine -and
-        $_.CommandLine -match $script:DshBinPattern -and
-        $_.CommandLine -match '(\s|")web(\s|"|$)'
-    })
+    # ---- 1. 停旧的 web 宿主（只认 @deepseek-ai/dsh bin.js web，排除桥血缘）
+    $old = @(Get-DshWebProcess)
     if ($old.Count -eq 0) {
         Log 'worker: 没找到在跑的 web 宿主'
     } else {
         foreach ($p in $old) {
-            Log ("worker: stop old web pid " + $p.ProcessId)
+            Log ("worker: stop old web pid " + $p.ProcessId + " parent=" + $p.ParentProcessId)
+            # 只用 Stop-Process -Id 停这一个进程；不用 taskkill /T，别连坐子进程。
             Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
         }
     }
@@ -289,10 +457,18 @@ try {
     # 地址里带令牌，只记长度不记内容，免得日志本身变成凭据泄漏点。
     Log ("worker: 端口活着 = $up ; url.txt 长度 = " + $saved.Length)
 
-    if ($up) { Log '=== worker: 好了' } else { Log '=== worker: 失败了，看上面 open-harness 的输出' }
+    if ($up) {
+        Log '=== worker: 好了'
+        # ---- 5. 把 OneBot 桥拉回 ready（可选；失败只记日志，不影响重启退出码）
+        Invoke-QQBridgeEnsure
+    } else {
+        Log '=== worker: 失败了，看上面 open-harness 的输出'
+        Log 'worker: 服务没起来，跳过 OneBot 桥恢复'
+    }
 
-    # ---- 5. 报平安（可选）：配了收件人才真的发。成功一条、失败一条。
+    # ---- 6. 报平安（可选）：配了收件人才真的发。成功一条、失败一条。
     # 通知失败只写日志 —— 这条链上最重要的是服务起没起来，不能被一条消息带崩。
+    # 放在桥恢复之后：桥刚被拉起来时，这条通知才发得出去。
     try {
         if ($up) {
             Send-Notify ('重启完成，服务已恢复（' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + '）')
