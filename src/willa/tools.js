@@ -43,7 +43,9 @@ export function mountWillaTools(scope, c) {
 
   const groups = [qq, affinity, memory, person, life, alive, worker]
   let count = 0
-  for (const group of groups) count += Number(group.register(scope)) || 0
+  // affinity 的「扣分压心情」联动要 life 实例（affinity.register 的第二个参数）。
+  // 别的 register 不认这个参数，传了也会忽略，正好一条循环统一带上。
+  for (const group of groups) count += Number(group.register(scope, { life })) || 0
   count += registerSessionNew(scope, c, session)
 
   loggerFor(scope)?.info?.(`dsh-willa: willa 工具已挂载 ${count} 个（26 个里按后端配置裁剪）`)

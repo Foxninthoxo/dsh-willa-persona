@@ -216,6 +216,26 @@ export function mountWake(scope, c, tools) {
 
   const allowed = new Set(Array.isArray(c.qqWatch) ? c.qqWatch : [])
   const inbox = qqInboxDir(c)
+  // 唤醒消息要拼「我此刻」和「这人」两段；实例没给（比如单独挂 wake 的测试）
+  // 或取的时候抛错，都只当这段为空，不能把正文弄丢。
+  const life = tools?.life
+  const person = tools?.person
+  const prefix = (fn) => {
+    try {
+      const s = fn()
+      return typeof s === 'string' ? s.trim() : ''
+    } catch {
+      return ''
+    }
+  }
+  const compose = (evt) =>
+    [
+      prefix(() => life?.lineFor?.(evt.userId)),
+      prefix(() => person?.summaryLine?.(evt.userId)),
+      evt.text,
+    ]
+      .filter(Boolean)
+      .join('\n')
   let last = 0
 
   try {
@@ -230,10 +250,30 @@ export function mountWake(scope, c, tools) {
           if (now - last < 3000) return
           last = now
           // 每次现读门房：session_new 换过目标后，下一条消息就该进新会话。
-          const target = session.door?.id || sessionId
+          let target = session.door?.id || sessionId
+          const text = compose(evt)
           try {
-            await session.inject(evt.text, target)
-            log?.info?.(`叫醒了：${evt.text.slice(0, 60)}`)
+            let id = ''
+            if (target) {
+              try {
+                id = await session.inject(text, target)
+              } catch (err) {
+                log?.warn?.(
+                  `指定的会话叫不醒（${err?.message ?? err}），改从工作区里挑门房`,
+                )
+                // 内存里的门房指针也清掉：否则 inject(text, undefined) 会拿同一个
+                // 死 id 再试一次，消息还是丢。文件里的 pointer 不动（那是持久口径）。
+                if (session.door?.id === target) session.door.id = undefined
+                target = undefined
+              }
+            }
+            if (!id) id = await session.inject(text, target)
+            if (id && id !== target) {
+              // 跟部署版一样：挑中谁就记在内存里，下一条别再敲那扇死门。
+              if (session.door) session.door.id = id
+              log?.info?.(`门房会话：${id}`)
+            }
+            log?.info?.(`叫醒了：${text.slice(0, 60)}`)
           } catch (err) {
             log?.warn?.(`叫醒失败：${err?.message ?? err}`)
           }
