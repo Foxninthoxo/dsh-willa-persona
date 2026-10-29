@@ -11,6 +11,9 @@
 - `worker_run` 干完主动回执：子进程 exit 时写 `<id>.done.json`（id / exitCode / signal /
   finishedAt / logPath / tail 最后 20 行 / task 前 120 字），并往门房会话注入
   `[worker 回来了]` 或 `[worker 出错了]`（带 tail 最后 3 行）；同 id 只写一次、只注入一次。
+- 回执再加两道闸：`finishedAt` 超过 5 分钟的不再注入（只打 stderr，`done.json` 照写）；
+  2 秒内先后结束的合成一条（最多 5 个），失败的那几条仍单独成条、成功的合并，带
+  `详见 worker_list`。
 
 ### 工程
 - 新增 `npm run selftest`（`scripts/selftest-door-worker.mjs`）：插件入口 1 项 + 门房 7 例 +
