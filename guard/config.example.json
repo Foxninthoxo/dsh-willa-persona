@@ -1,0 +1,14 @@
+{
+  "port": 3080,
+  "stateDir": "%LOCALAPPDATA%\\dsh-web",
+  "logDir": "%TEMP%",
+  "envFile": "",
+  "taskPrefix": "DshGuard",
+  "permissionMode": "",
+  "guardEveryMinutes": 5,
+  "restartWaitSeconds": 20,
+  "notifyPrivate": "",
+  "notifyGroup": "",
+  "notifyUrl": "",
+  "notifyToken": ""
+}

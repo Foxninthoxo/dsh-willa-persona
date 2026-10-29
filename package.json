@@ -12,6 +12,7 @@
   "files": [
     "lib/",
     "scripts/",
+    "guard/",
     "cordis.patch.yml",
     "LESSONS.md",
     "README.md",
@@ -19,7 +20,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/selftest.js"
+    "test": "node test/selftest.js",
+    "guard:install": "powershell -ExecutionPolicy Bypass -File guard/install-guard.ps1"
   },
   "keywords": [
     "deepseek-harness",

@@ -30,6 +30,7 @@ dsh plugin --profile tui add "<本包目录的绝对路径>"
 - **爱好**：`hobby_add` / `hobby_list` / `hobby_remove`，随机唤醒会按权重从「爱好 / 没做完的事 / 发呆」里挑话题。
 - **空库起步**：不附带任何记忆、任何人、任何聊天记录，也不提供迁移工具。
 - **教训**：[`LESSONS.md`](./LESSONS.md) 是踩过的坑，只写现象 / 原因 / 改法，通用化、脱敏之后随包发布，新的写在最上面。
+- **（可选）Windows 看门脚本**：`guard\` 里有一套 PowerShell 5.1 脚本，管 `dsh web` 的启动、抓令牌地址、看门和两段式重启；不装不影响本插件，见[文末附录](#附把-dsh-web-看住guard)。
 
 人设原文经过了通用化处理：没有具体人的账号、群号、本机路径或内网端口。
 
@@ -352,6 +353,68 @@ node scripts/skill-lookup.mjs --path qq-reply
 - **正常 0**：文件在、能解析，但窗口内一条查询都没有 → `正常 0（文件在、还没记录过查询）`。这是真 0，依据是文件存在。
 - 没给 `--events` 时这行写 `没启用`，只看 `skill` 工具那列。
 
+## 附：把 dsh web 看住（guard\）
+
+`guard\` 是随包附带的一套 **Windows 专用、可选** 小工具（Windows PowerShell 5.1），不是插件运行时的一部分；不装它，人设、记忆、定时都照常。它解决三件事：
+
+- **令牌每次启动都换**：`dsh web` 的访问令牌只打印在启动日志那一行，不落固定文件，浏览器书签很快 401。脚本自己起一次、把带令牌的地址抓下来存进 `stateDir\url.txt`，下次先试探再打开。
+- **崩了没人拉**：注册一个看门计划任务，默认每 5 分钟检查一次端口，没起就拉起来。
+- **重启会自杀**：DSH 会话里的子进程挂在「job 关闭就全杀」的 Windows job 里。在会话里先 `Stop-Process` 再启动，脚本会跟着宿主一起被杀，「起」永远执行不到。所以重启拆成两段：`restart.ps1` 只注册一次性计划任务，`restart-worker.ps1` 由计划任务去停和起。
+
+### 装
+
+在仓库根执行（`-EnvFile` 指向写着 `DEEPSEEK_API_KEY=...` 的文件；环境变量里已经有这个 key 就可以不带）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File guard\install-guard.ps1 -EnvFile C:\path\to\.env -DryRun
+powershell -ExecutionPolicy Bypass -File guard\install-guard.ps1 -EnvFile C:\path\to\.env
+```
+
+也可以 `npm run guard:install -- -EnvFile C:\path\to\.env`（`npm run` 后面的参数会原样传给脚本；这条只在 Windows 上有意义）。`-DryRun` 只打印要注册的任务和完整命令行，不碰计划任务。
+
+想先确认 key 和 `dsh` 命令没问题，可以手动起一次服务：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File guard\open-harness.ps1 -EnvFile C:\path\to\.env
+```
+
+### 卸
+
+```powershell
+powershell -ExecutionPolicy Bypass -File guard\uninstall-guard.ps1
+```
+
+只删计划任务，不停服务、不删 `stateDir` 和日志。加 `-DryRun` 先看会删哪两个。
+
+### 配置
+
+参数优先级：**命令行 > 配置文件 > 内置默认**。配置文件默认是 `guard\dsh-guard.config.json`（从 `guard\config.example.json` 复制；它可能含 OneBot accessToken，已在 `.gitignore` 里，别提交）；也可以用 `-Config` 指别处。路径字段支持 `%LOCALAPPDATA%` / `%TEMP%` 这类 `%VAR%`。
+
+| 键 | 对应参数 | 默认 | 说明 |
+|---|---|---|---|
+| `port` | `-Port` | `3080` | dsh web 端口 |
+| `stateDir` | `-StateDir` | `%LOCALAPPDATA%\dsh-web` | 放 `url.txt`（**凭据**）和 `restarting.flag` |
+| `logDir` | `-LogDir` | `%TEMP%` | 日志目录 |
+| `envFile` | `-EnvFile` | 空 | 读 `DEEPSEEK_API_KEY` 的文件 |
+| `taskPrefix` | `-TaskPrefix` | `DshGuard` | 计划任务名前缀 |
+| `permissionMode` | `-PermissionMode` | 空 | 给 dsh 子进程设 `DSH_PERMISSION_MODE`；空 = 不动 |
+| `guardEveryMinutes` | `-IntervalMinutes` | `5` | 看门间隔（分钟） |
+| `restartWaitSeconds` | `-RestartWaitSeconds` | `20` | 重启时等端口空出来的上限（秒） |
+| `notifyPrivate` / `notifyGroup` | 同名 | 空 | 重启/看门拉起后报平安的 QQ 私聊/群；都空 = 不发 |
+| `notifyUrl` | `-NotifyUrl` | 空 | OneBot HTTP 地址；空 = 不发，`guard\autoconfig.ps1` 可从 OneBot 配置里填 |
+| `notifyToken` | `-NotifyToken` | 空 | OneBot accessToken，走 `Authorization: Bearer` |
+
+通知四项可以先跑 `guard\autoconfig.ps1 -DryRun`，它从本机 OneBot / DSH profile 里读，token 只显示前 4 位 + 长度；也可以用 `-OneBotConfig` / `-HostConfig` 直接指配置位置。
+
+### 计划任务与日志
+
+- `<taskPrefix>-Guard`：看门任务，默认每 `guardEveryMinutes` 分钟跑一次 `open-harness.ps1 -Ensure -NoOpen`；服务活着直接退出，正在重启（`restarting.flag` 三分钟内）会让路。
+- `<taskPrefix>-Restart`：一次性重启任务，由 `restart.ps1` 注册并立刻 `/run`，跑完留在任务计划里。
+- 默认前缀 `DshGuard`，所以是 `DshGuard-Guard` / `DshGuard-Restart`。查：`schtasks /query /tn "DshGuard-Guard" /v /fo LIST`。
+- 日志在 `logDir`：`dsh-web.log` / `dsh-web.err.log`（服务输出，上一次留 `.prev`）、`dsh-restart.log`、`dsh-restart-worker.log`。`dsh-web.log` 里有带 `?token=` 的地址，贴之前先抹掉。
+
+完整说明、排错和「为什么必须两段式」见 [`guard/README.md`](./guard/README.md)。
+
 ## 开发与自测
 
 ```bash
@@ -369,7 +432,7 @@ MIT，见 [LICENSE](./LICENSE)。
 
 ## 状态
 
-已就绪：仓库地址、作者、主页、issue 地址都填在了 `package.json` 里，MIT 许可，`npm pack` 清单干净（带 `lib/`、`scripts/`、`LESSONS.md`、README 和 patch，不含 `test/`），自测 28 项全绿。
+已就绪：仓库地址、作者、主页、issue 地址都填在了 `package.json` 里，MIT 许可，`npm pack` 清单干净（带 `lib/`、`scripts/`、`guard/`、`LESSONS.md`、README 和 patch，不含 `test/`），自测 28 项全绿。
 
 还没做的，按优先级：
 

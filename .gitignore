@@ -27,3 +27,6 @@ Thumbs.db
 private/
 .env
 .env.*
+
+# guard 的本机配置（含 OneBot accessToken，别提交）
+guard/dsh-guard.config.json

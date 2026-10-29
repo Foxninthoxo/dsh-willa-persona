@@ -60,6 +60,10 @@ node scripts/skill-lookup.mjs <关键词>    # 常驻 / archive / ~/.agents/skil
 
 表里一次没用过的也会列出来（合计写 0）。低频的从 `skills/` 挪到 `skills-archive/`，`skill-lookup` 仍能找到；过一两周再跑一次看效果。`--events <文件>` 可把查询命中并进统计（不给就只统计 `skill` 工具调用）；缺文件是「还没建」、解析失败是「坏了」、有文件没查询是「正常 0」，别糊成一个 0。细节见 [README.md](./README.md#常驻-skill-按真实使用来定两个小脚本)。
 
+## 可选：Windows 看门脚本（guard\）
+
+包里还带一套可选的 Windows PowerShell 5.1 脚本，用来看住 `dsh web`：抓每次启动现生成的令牌地址、崩了自动拉起、要重启时走计划任务安全地换实例（在会话里直接重启会跟着宿主一起被杀）。装：`guard\install-guard.ps1`；卸：`guard\uninstall-guard.ps1`；配置字段、计划任务和日志位置见 [README.md](./README.md) 的「附：把 dsh web 看住（guard\）」。不装不影响插件本身。
+
 ## 支持的 DSH 版本
 
 `>=0.2.0 <0.4.0`（开发机实测 `0.2.1-rc.2`），以 `package.json` 的 `engines.dsh` 为准。
