@@ -1,0 +1,7 @@
+node_modules/
+*.tgz
+*.log
+.DS_Store
+# 本地调试产物（绝不进库、进库也别进包）
+private/
+src/**/*.map

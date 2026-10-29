@@ -1,0 +1,10 @@
+# dsh-willa bundle patch
+# 一条 entry：id 短、name 必须等于包名。
+# 默认值放在 config schema 里，patch 只写「这个包必须不同的东西」。
+# 对外默认：只用人设，不碰 QQ / 记忆 / worker（enableWilla: false）。
+- insert:
+    - id: willa
+      name: dsh-willa
+      config:
+        enablePersona: true
+        enableWilla: false

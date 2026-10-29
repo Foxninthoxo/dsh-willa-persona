@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Willa · Personas & Companion",
+    "description": "A persona library (import .md, switch per session/workspace) plus optional companion tools: QQ messaging, long-term memory, affinity, proactivity and background workers. Only the persona layer is on by default."
+  }
+}

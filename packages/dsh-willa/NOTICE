@@ -1,0 +1,16 @@
+dsh-willa
+=========
+
+本包的人设半侧衍生自 dsh-persona-dafeiyu 0.5.0（MIT）：
+
+  https://github.com/huaizhuanghub/dsh-persona-dafeiyu
+  Copyright (c) 2026 dsh-persona-dafeiyu contributors
+
+迁移时做了这些改动：
+- 包名 / cordis 行名改为 dsh-willa；
+- 浏览器半侧 HTTP 前缀改为 /api/dsh-willa/*；
+- 人设库默认路径改为 <DSH_HOME>/storages/dsh-willa/personas.json；
+- 入口改为条件挂载（ctx.inject），配置键改为拍平后的 dsh-willa schema。
+
+原包的 MIT 全文见本目录 LICENSE；原包的人设文本、设置页界面与 i18n 字典
+仍归原贡献者所有。willa 侧新增代码由 Fox 以同一 MIT 许可证发布。

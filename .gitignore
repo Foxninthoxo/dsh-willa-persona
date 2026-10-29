@@ -4,7 +4,7 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 
-# 本地数据（我这个包的存储都在 DSH 的 storages 下，但以防有人在本目录跑测试）
+# 本地数据（两个包的存储默认都在 DSH 的 storages 下，这里防的是有人在本目录跑测试）
 storages/
 *.local.json
 owner.json
@@ -15,6 +15,11 @@ wander.json
 hobbies.json
 .skill-usage/
 
+# 本机调试产物（绝不进库、也不进包）
+private/
+*.tgz
+src/**/*.map
+
 # 杂物
 *.log
 *.tmp
@@ -23,10 +28,9 @@ Thumbs.db
 .idea/
 .vscode/
 
-# 私有
-private/
+# 私有 / 凭据
 .env
 .env.*
 
 # guard 的本机配置（含 OneBot accessToken，别提交）
-guard/dsh-guard.config.json
+**/dsh-guard.config.json

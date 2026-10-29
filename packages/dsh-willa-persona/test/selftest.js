@@ -117,10 +117,18 @@ async function main() {
   const pkg = require('../package.json')
   if (pkg.repository) {
     // 仓库字段是发布前补的；补了就得是正经地址，不能再是占位符。
-    assert.match(pkg.repository.url, /^git\+https:\/\/github\.com\/[^/]+\/[^/]+\.git$/)
-    assert.match(pkg.homepage, /^https:\/\/github\.com\/[^/]+\/[^/]+$/)
+    // 单仓两包之后 repository 多了 directory，地址也可能写成 SSH。
+    assert.match(
+      pkg.repository.url,
+      /^(?:git\+https:\/\/github\.com\/|git@github\.com:)[^/]+\/[^/]+\.git$/,
+    )
+    assert.equal(pkg.repository.directory, 'packages/dsh-willa-persona')
+    assert.match(
+      pkg.homepage,
+      /^https:\/\/github\.com\/[^/]+\/[^/]+\/tree\/main\/packages\/[^/]+$/,
+    )
     assert.match(pkg.bugs.url, /^https:\/\/github\.com\/[^/]+\/[^/]+\/issues$/)
-    ok('package.json 仓库字段', 'repository / homepage / bugs 已填且格式正确')
+    ok('package.json 仓库字段', 'repository（含 directory）/ homepage / bugs 已填且格式正确')
   } else {
     const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8')
     assert.ok(readme.includes('发布前补 repository'))

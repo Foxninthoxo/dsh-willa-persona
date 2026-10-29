@@ -1,0 +1,47 @@
+# 更新日志
+
+## 未发布
+
+### willa 半侧
+- `qq_send` 加门房校验：不是当前门房就拒发。门房口径**严格串行**——内存里的门房 id
+  （`wakeSessionId`，`session_new` 会当场改它）有值就只认它，没有才回退
+  `<willaDataDir>/door-session.txt`；拿不到自己的 `sessionId`、或两个口径都读不到时
+  fail-open 放行（只在 stderr 说一句）。拒绝时写一行 `<willaDataDir>/qq-send-blocked.log`
+  再抛错，日志写不进去也照拒。
+- `worker_run` 干完主动回执：子进程 exit 时写 `<id>.done.json`（id / exitCode / signal /
+  finishedAt / logPath / tail 最后 20 行 / task 前 120 字），并往门房会话注入
+  `[worker 回来了]` 或 `[worker 出错了]`（带 tail 最后 3 行）；同 id 只写一次、只注入一次。
+
+### 工程
+- 新增 `npm run selftest`（`scripts/selftest-door-worker.mjs`）：插件入口 1 项 + 门房 7 例 +
+  worker 回执，只碰临时目录、假 dsh bin。
+
+## 0.1.0 — 2026-10-29
+
+第一个可发布版本：把 `willa-dsh`（26 个工具 + 四个后台）和 `dsh-persona-dafeiyu`（人设库）合成一个包。
+
+**对外默认**：只开人设（`enablePersona: true`），私活全关（`enableWilla: false`）。
+装了就是一个人设库；用户的 QQ、记忆、后台任务一概不碰。
+
+### 人设半侧
+- 从 `dsh-persona-dafeiyu` 0.5.0（MIT）迁入，保留原版权声明（`NOTICE` / `LICENSE`）。
+- 三条路由改为 `/api/dsh-willa/{status,mutate,persona}`；客户端 bundle 的 loader id 改为 `dsh-willa`。
+- 人设库默认 `$DSH_HOME/storages/dsh-willa/personas.json`，`personaStore` 可覆盖；
+  旧库迁移用 `scripts/migrate-persona-store.mjs`（默认 dry-run，目标已存在就拒绝）。
+
+### willa 半侧（`enableWilla: true` 才挂）
+- 26 个工具：QQ 四个、记忆四个、心账五个、人设卡三个、生活两个、能动性四个、派活三个、新会话一个。
+- 四个后台：`alive` 定时器、`wake`（OneBot WS 收消息注入会话）、`wander`（随机自醒）、`qzone` 轮询；
+  全部用 `scope.effect` 建，**插件重载不叠加**。
+- **缺后端就不注册对应工具**：QQ 没配 → 不出现 `qq_*`；embed 没配 → 只剩 `mem_stats`（显示「记忆未配置」）；
+  `dsh`/`node` 找不到 → 不出现 `worker_*`。纯本地的账始终在。
+- 26 处本机硬编码全部改成配置项（39 个键），没有再读别人的配置文件。
+
+### 工程
+- `npm run preflight`：构建 → 冒烟 → 隐私扫描 → 客户端包壳/元数据 → 打包清单，一条命令跑完。
+- `lib/` 进库，`link:` / `file:` 安装不用先构建。
+- 同一份代码里不再出现本机路径、QQ 号、token（隐私扫描守着）。
+
+### 已知
+- 设置页 UI 没在真实浏览器里点过（路由与宿主收录已验，见 `docs/VERIFY.md`）。
+- `package.json` 的 `repository` / `homepage` / `bugs` 等 GitHub 仓库定了再补。
