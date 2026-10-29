@@ -5,11 +5,12 @@
 ## 一条命令自检
 
 ```powershell
-node packages\dsh-willa\scripts\preflight.mjs
+node scripts\preflight.mjs
 ```
 依次跑 **构建 → 冒烟 → 隐私扫描 → 客户端包壳/插件页元数据 → 打包清单核对**。
-2026-10-29 11:0x（移植门房校验 + worker 回执之后）全绿：文件数 28、体积 82058 B、
-`lib/client.js` / `locale/{zh,en}.json` / `icon.svg` 都在，`src|docs|scripts` 没进包。
+2026-10-29 改成单包布局后全绿：文件数 69（约 180 KB），`lib/client.js` /
+`locale/{zh,en}.json` / `icon.svg` / `src/` / `docs/` / `scripts/` 都在，
+`persona/lib`、`persona/test`、`private/` 没进包（只带 `persona/guard/` 和 `persona/scripts/`）。
 
 其中 `scripts\client-shape.mjs` 专门盯四件最容易出错又最难查的事：
 `lib/client.js` 是 `__ModuleLoader__` 包壳、**loader id 等于包名**、bundle 里没有旧包名/旧 `/api/` 前缀、
@@ -32,7 +33,7 @@ node packages\dsh-willa\scripts\preflight.mjs
 ## 隔离 profile 里的真装（`willa-merge-test`）
 
 ```
-dsh plugin --profile willa-merge-test add "<workspace>\dsh-willa"
+dsh plugin --profile willa-merge-test add "<仓库根>"
 dsh --profile willa-merge-test --dump-config
 ```
 → 输出里有 `id: willa` / `name: dsh-willa` / `enablePersona: true` / `enableWilla: false`（默认值）。
@@ -65,7 +66,7 @@ dsh --profile willa-merge-test --dump-config
 用 **3081** 端口起（不碰 live 的 3080）：
 
 ```
-dsh plugin --profile willa-web-test add file:<workspace>/dsh-willa
+dsh plugin --profile willa-web-test add file:<仓库根>
 # 然后把 package.json 的 dsh.profile.bundles 里 dsh-headless 换成 @deepseek-ai/dsh-web-app
 dsh --profile willa-web-test --port 3081 --no-open
 ```

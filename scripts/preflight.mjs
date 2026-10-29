@@ -2,7 +2,7 @@
 /**
  * preflight.mjs —— 发布/切换前的一条命令自检。
  *
- * 依次跑：构建 → 冒烟 → 隐私扫描 → 打包清单核对。
+ * 依次跑：构建 → 冒烟 → 隐私扫描 → 客户端包壳 → 打包清单核对。
  * 任何一步失败就停下并退出非 0，不需要人肉记顺序。
  *
  *   node scripts/preflight.mjs
@@ -62,14 +62,38 @@ if (!skipPack) {
     process.exit(1)
   }
   const files = (info[0]?.files ?? []).map((f) => f.path)
-  const bad = files.filter((f) => /^(src|private|docs|scripts)\//.test(f) || f.endsWith('.tgz'))
+  // 单包布局后 src/ 与 docs/ 是主动发布的；仍不许进包的是私货、旧 packages/ 壳，
+  // 以及留档 persona 里除 guard/、scripts/ 之外的东西（lib/test/README 都不发）。
+  const bad = files.filter(
+    (f) =>
+      /^private\//.test(f) ||
+      /^packages\//.test(f) ||
+      (/^persona\//.test(f) && !/^persona\/(guard|scripts)\//.test(f)) ||
+      f.endsWith('.tgz'),
+  )
   console.log(`文件数 ${files.length}，体积 ${info[0]?.size ?? '?'} B`)
   for (const f of files) console.log(`  ${f}`)
   if (bad.length > 0) {
     console.error(`\n✗ 包里混进了不该发的东西：${bad.join(', ')}`)
     process.exit(1)
   }
-  const must = ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'locale/zh.json', 'locale/en.json', 'icon.svg']
+  const must = [
+    'lib/index.js',
+    'lib/client.js',
+    'src/index.js',
+    'cordis.patch.yml',
+    'locale/zh.json',
+    'locale/en.json',
+    'icon.svg',
+    'README.md',
+    'LICENSE',
+    'NOTICE',
+    'CHANGELOG.md',
+    'docs/VERIFY.md',
+    'scripts/preflight.mjs',
+    'persona/guard/install-guard.ps1',
+    'persona/scripts/skill-lookup.mjs',
+  ]
   const missing = must.filter((m) => !files.includes(m))
   if (missing.length > 0) {
     console.error(`\n✗ 包里缺必需文件：${missing.join(', ')}`)

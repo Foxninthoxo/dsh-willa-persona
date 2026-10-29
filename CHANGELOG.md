@@ -15,6 +15,12 @@
 ### 工程
 - 新增 `npm run selftest`（`scripts/selftest-door-worker.mjs`）：插件入口 1 项 + 门房 7 例 +
   worker 回执，只碰临时目录、假 dsh bin。
+- 改成单包布局：仓库根就是 `dsh-willa`，删掉 `packages/` 与 npm workspaces；
+  原 `dsh-willa-persona` 整套移入 `persona/` 留档（`private: true`，不再单独发布）。
+- `files` 扩到 `src/`、`docs/`、`scripts/`、`persona/guard/`、`persona/scripts/`；
+  `persona/lib`、`persona/test` 明确排除。preflight 的打包清单同步改口径。
+- 根 README 重写成「一个包装什么」，依赖表按本包真实行为重写；根 `guard:install`
+  指到 `persona/guard/install-guard.ps1`，两支筛 skill 的脚本仍从 `persona/scripts/` 直接跑。
 
 ## 0.1.0 — 2026-10-29
 

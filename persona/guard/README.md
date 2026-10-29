@@ -2,7 +2,7 @@
 
 用 Windows 计划任务把 `dsh web` 看住的一套小脚本：**起服务、抓带令牌的地址、崩了自动拉回来、要重启时安全地换一个新实例**。
 
-这是 `dsh-willa-persona` 包里的 `guard\` 目录，属于**可选**的 Windows 小工具，不是插件运行时的一部分。下面所有命令都在本目录（`guard\`）里执行；从包根（`packages/dsh-willa-persona`）跑就把 `.\` 换成 `guard\`。
+这是 `dsh-willa` 包内 `persona/guard/` 的留档工具，属于**可选**的 Windows 小工具，不是插件运行时的一部分。下面所有命令都在本目录（`guard\`）里执行；从仓库根跑就把 `.\` 换成 `persona\guard\`。
 
 只面向 Windows + Windows PowerShell 5.1。没有外部依赖，也不连外网；只有配了 OneBot 通知时，会请求本机 `127.0.0.1` 的 OneBot HTTP。
 

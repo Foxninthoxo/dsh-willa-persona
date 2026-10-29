@@ -1,38 +1,110 @@
 {
-  "name": "dsh-willa-repo",
-  "version": "0.0.0",
-  "private": true,
-  "description": "DSH 的 Willa 单仓两包：dsh-willa-persona（纯人设/记忆/定时）与 dsh-willa（带 QQ 桥、worker、QQ 空间与客户端的完整版）。",
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "test": "npm run test --workspaces --if-present",
-    "preflight": "npm run preflight --workspace dsh-willa",
-    "privacy": "npm run privacy-check --workspace dsh-willa"
-  },
-  "keywords": [
-    "deepseek-harness",
-    "dsh",
-    "dsh-plugin",
-    "willa",
-    "persona",
-    "monorepo"
-  ],
-  "license": "MIT",
-  "engines": {
-    "node": ">=22.15"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:Foxninthoxo/dsh-willa-persona.git"
-  },
-  "homepage": "https://github.com/Foxninthoxo/dsh-willa-persona",
-  "bugs": {
-    "url": "https://github.com/Foxninthoxo/dsh-willa-persona/issues"
-  },
-  "author": {
-    "name": "Foxninthoxo",
-    "url": "https://github.com/Foxninthoxo"
-  }
+    "name": "dsh-willa",
+    "version": "0.1.0",
+    "description": "人设库 + 可选 QQ / 记忆 / 状态工具 for DeepSeek Harness。QQ 需自备 OneBot 实现（本机 HTTP/WS），向量记忆需自备 embeddings 服务，worker 会 spawn dsh headless 子进程。A persona library with optional QQ, memory and companion tools.",
+    "keywords": [
+        "deepseek-harness",
+        "dsh",
+        "dsh-plugin",
+        "persona",
+        "companion",
+        "qq",
+        "memory",
+        "i18n"
+    ],
+    "license": "MIT",
+    "author": "Fox",
+    "type": "module",
+    "main": "lib/index.js",
+    "exports": {
+        ".": "./lib/index.js",
+        "./client": "./lib/client.js",
+        "./locale/*.json": "./locale/*.json",
+        "./icon": "./icon.svg",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "lib/",
+        "src/",
+        "locale/",
+        "docs/",
+        "scripts/",
+        "persona/guard/",
+        "persona/scripts/",
+        "/cordis.patch.yml",
+        "/README.md",
+        "/LICENSE",
+        "/NOTICE",
+        "/CHANGELOG.md",
+        "/icon.svg"
+    ],
+    "scripts": {
+        "build": "node scripts/build.mjs",
+        "test": "node scripts/smoke.mjs",
+        "selftest": "node scripts/selftest-door-worker.mjs",
+        "privacy-check": "node scripts/privacy-check.mjs",
+        "preflight": "node scripts/preflight.mjs",
+        "guard:install": "powershell -ExecutionPolicy Bypass -File persona/guard/install-guard.ps1",
+        "prepublishOnly": "node scripts/preflight.mjs"
+    },
+    "dsh": {
+        "bundle": {
+            "patch": "cordis.patch.yml"
+        },
+        "client": {
+            "inject": [
+                "@deepseek-ai/dsh-client-ui-renderer",
+                "@deepseek-ai/dsh-client-locale"
+            ],
+            "platform": "web"
+        },
+        "engines": {
+            "dsh": ">=0.2.0-rc.2"
+        },
+        "compatibility": {
+            "dshReleases": {
+                "0.2.0-rc.2": "compatible",
+                "0.2.1-alpha.4": "compatible",
+                "0.2.1-rc.2": "compatible"
+            }
+        }
+    },
+    "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.1",
+        "@deepseek-ai/dsh-llm": ">=0.2.0-rc.2",
+        "@deepseek-ai/dsh-system-prompt": "^0.2.0-rc.2",
+        "@deepseek-ai/dsh-tools": ">=0.2.0-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.4"
+    },
+    "peerDependenciesMeta": {
+        "@deepseek-ai/cordis": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-system-prompt": {
+            "optional": true
+        },
+        "@deepseek-ai/schemastery": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-tools": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-llm": {
+            "optional": true
+        }
+    },
+    "engines": {
+        "node": ">=22.15"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:Foxninthoxo/dsh-willa-persona.git"
+    },
+    "homepage": "https://github.com/Foxninthoxo/dsh-willa-persona",
+    "bugs": {
+        "url": "https://github.com/Foxninthoxo/dsh-willa-persona/issues"
+    }
 }

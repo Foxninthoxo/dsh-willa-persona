@@ -117,15 +117,15 @@ async function main() {
   const pkg = require('../package.json')
   if (pkg.repository) {
     // 仓库字段是发布前补的；补了就得是正经地址，不能再是占位符。
-    // 单仓两包之后 repository 多了 directory，地址也可能写成 SSH。
+    // 并入单包后，留档目录是 persona/，不再挂在 packages/ 下。
     assert.match(
       pkg.repository.url,
       /^(?:git\+https:\/\/github\.com\/|git@github\.com:)[^/]+\/[^/]+\.git$/,
     )
-    assert.equal(pkg.repository.directory, 'packages/dsh-willa-persona')
+    assert.equal(pkg.repository.directory, 'persona')
     assert.match(
       pkg.homepage,
-      /^https:\/\/github\.com\/[^/]+\/[^/]+\/tree\/main\/packages\/[^/]+$/,
+      /^https:\/\/github\.com\/[^/]+\/[^/]+\/tree\/main\/persona$/,
     )
     assert.match(pkg.bugs.url, /^https:\/\/github\.com\/[^/]+\/[^/]+\/issues$/)
     ok('package.json 仓库字段', 'repository（含 directory）/ homepage / bugs 已填且格式正确')

@@ -3,20 +3,20 @@
 目标：让 Fox 的 `web` profile 从「`willa-dsh` + `dsh-persona-dafeiyu` 两个包」切换到「`dsh-willa` 一个包」，
 **且随时能一键切回来**。切换之前 `dsh-willa` 必须先在隔离 profile 里装过、`--dump-config` 正常。
 
-> 现在（2026-10-28 深夜）还没切。`dsh-willa` 处在第二阶段：人设半侧已验收，26 个工具正在迁。
-> **在那 26 个工具和定时器都验完之前，不要动 live 的 `web` profile。**
+> 现状（2026-10-29）：单包已合并完成，`dsh-willa` 的 26 个工具和四个后台都已迁入。
+> live 的 `web` profile 还没切；**切之前先备份 profile，再按下面的步骤走。**
 
 ## 前置检查
 
 ```powershell
 # 1) 包的形状对不对（不装，只看）
-cd <workspace>\dsh-willa
+cd <仓库根>
 node scripts\smoke.mjs
 node scripts\privacy-check.mjs
-npm pack --dry-run          # 必须是 13 个文件左右、不含 src/ 和 private/
+npm pack --dry-run          # 清单应含根包 + persona/guard、persona/scripts，不含 persona/lib、persona/test、private/
 
 # 2) 隔离 profile 里能装、能解析
-dsh plugin --profile willa-merge-test add "<workspace>\dsh-willa"
+dsh plugin --profile willa-merge-test add "<仓库根>"
 dsh --profile willa-merge-test --dump-config
 # 期望看到：  id: willa / name: dsh-willa / enablePersona: true / enableWilla: false
 ```
@@ -30,7 +30,7 @@ dsh --profile willa-merge-test --dump-config
    ```
 2. 装上合并包（`link:` 指向工作区，改代码不用重装）：
    ```powershell
-   dsh plugin --profile web add "<workspace>\dsh-willa"
+   dsh plugin --profile web add "<仓库根>"
    ```
 3. 在 `~\.dsh\profiles\web\cordis.patch.yml` 里覆盖同一个 id 的配置（本机才需要的那几项）：
    ```yaml
@@ -71,8 +71,8 @@ dsh plugin --profile web add dsh-persona-dafeiyu
 - 人设库：旧的 `<DSH_HOME>\storages\dsh-persona-dafeiyu\personas.json`，
   新包默认读 `<DSH_HOME>\storages\dsh-willa\personas.json`。用脚本迁（2026-10-29 加）：
   ```powershell
-  node packages\dsh-willa\scripts\migrate-persona-store.mjs          # 只看计划
-  node packages\dsh-willa\scripts\migrate-persona-store.mjs --apply  # 真写；目标已存在就拒绝（exit 2）
+  node scripts\migrate-persona-store.mjs          # 只看计划
+  node scripts\migrate-persona-store.mjs --apply  # 真写；目标已存在就拒绝（exit 2）
   ```
   脚本只复制不删旧库；`--force` 才会覆盖（先备份成 `.bak-<时间>`）。**别让新旧两个包同时写同一份。**
 - Willa 的私活数据在 `workspace\private\`（`people.json` / `affinity.json` / `life.json` / `alive.json` /

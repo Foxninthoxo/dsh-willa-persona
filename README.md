@@ -1,106 +1,145 @@
-# dsh-willa-repo
+# dsh-willa
 
-一个仓库，两个可以**单独安装**的 DeepSeek Harness（DSH）插件包。两个包名字很像，先看这张表：
+DeepSeek Harness（DSH）的**一个**插件包：人设、记忆、心账、alive 定时与随机唤醒，外加可选的 QQ（OneBot）、QQ 空间、worker 派活、Windows 看门脚本和两支筛 skill 的小工具。
 
-| 包 | npm 名 | 是什么 | 装它得到什么 |
-|---|---|---|---|
-| [`packages/dsh-willa-persona`](./packages/dsh-willa-persona/) | `dsh-willa-persona` | 纯人设包 | Willa（大肥鱼）人设注入、本地记忆、心账、轻量定时、随机唤醒。**插件本体默认不发外部请求**，记忆默认纯本地关键词检索；不含 QQ / B站 / 桌面宠物。 |
-| [`packages/dsh-willa`](./packages/dsh-willa/) | `dsh-willa` | 完整版 | 人设半侧 + 可选 QQ 桥（OneBot，含收发 / 注入 / 空间轮询）、worker 派活、客户端页面。默认只开人设半侧（`enableWilla: false`）；QQ、向量检索、worker 都要另外配置或自备外部组件（见[依赖表](#隐私与安全)）。 |
-
-**怎么选**：只想要一个会记事、会自己提醒自己的 Willa，装 `dsh-willa-persona`；要把 QQ、派活、QQ 空间也接上，装 `dsh-willa`。两个包**不要同时启用**，否则两套人设会一起进 systemPrompt。
-
-两个包共用一套人设来源和发布节奏，所以放在一个仓里；各自的 `package.json` 仍然独立，可以分别发 npm。
+仓库根就是包根，`package.json` 里只有 `dsh-willa` 这一个包。默认只开人设半侧（`enablePersona: true`，`enableWilla: false`）：装完只得到一个人设库，不碰你的 QQ、记忆和后台任务。
 
 ## 装
 
-从 npm（发布后）：
-
 ```bash
-npm i dsh-willa-persona
 npm i dsh-willa
-```
-
-作为 DSH 插件装（发布后可直接用包名；本地开发时把包名换成包的绝对路径）：
-
-```bash
-dsh plugin --profile <profile> add dsh-willa-persona
 dsh plugin --profile <profile> add dsh-willa
 ```
 
-装完直接说话就行。数据默认落在 `<DSH_HOME>/storages/<包名>/`，删掉就是空库。详细配置、工具列表、数据结构和踩坑记录看各包的 README：
-
-- persona：[README](./packages/dsh-willa-persona/README.md) / [中文](./packages/dsh-willa-persona/README.zh.md) / [LESSONS](./packages/dsh-willa-persona/LESSONS.md)
-- dsh-willa：[README](./packages/dsh-willa/README.md) / [验证记录](./packages/dsh-willa/docs/VERIFY.md) / [CHANGELOG](./packages/dsh-willa/CHANGELOG.md)
-
-## 测
-
-在仓库根（需要 Node 22.15+，测试本身不需要 `npm install`）：
+本地开发直接指仓库根：
 
 ```bash
-npm test          # 两个包的 test 都跑：persona 的 selftest + dsh-willa 的 smoke
-npm run preflight # dsh-willa：构建 → 冒烟 → 隐私扫描 → 客户端包壳 → 打包清单
+dsh plugin --profile <profile> add "<仓库绝对路径>"
 ```
 
-单独跑：
+profile 的 `cordis.patch.yml` 里会多一行：
 
-```bash
-cd packages/dsh-willa-persona
-npm test                 # 28 项
-
-cd packages/dsh-willa
-npm run preflight        # 发布前一条命令自检
-npm run selftest         # 门房 / worker 回执链路
+```yaml
+- id: willa
+  name: dsh-willa
 ```
 
-根目录的 `npm run guard:install` 已挪回子包：`cd packages/dsh-willa-persona && npm run guard:install -- -EnvFile <path>`。
+覆盖配置写同一个 id，只写要改的键：
+
+```yaml
+- id: willa
+  config:
+    enableWilla: true
+    willaWorkspace: 'C:\...\workspace'
+    willaDataDir: 'C:\...\workspace\private'
+    qqHttpUrl: 'http://127.0.0.1:3000'
+    qqWsUrl: 'ws://127.0.0.1:3001'
+    qqSelfId: '<你的QQ号>'
+```
+
+## 这一个包装了什么
+
+| 能力 | 在哪 | 说明 |
+|---|---|---|
+| 人设 | `src/persona/`、`lib/persona/` | Willa（大肥鱼）人设注入、称呼、设置页三条 `/api/dsh-willa/*` 路由。默认开。 |
+| 记忆 | `src/willa/memory.js` | `mem_note` / `mem_recall` / `mem_stats` / `mem_supersede`。要配 `memoryEmbedUrl` 才注册 `mem_recall` / `mem_note`；没配就只保留 `mem_stats` / `mem_supersede`。 |
+| 心账 | `src/willa/affinity.js` | `affinity_get` / `affinity_adjust` / `affinity_slot` / `affinity_list` / `affinity_migrate`。 |
+| 人设卡 | `src/willa/person.js` | `person_get` / `person_list` / `person_upsert`。 |
+| 生活 | `src/willa/life.js` | `life_now` / `life_set`。 |
+| 定时 / 能动性 | `src/willa/alive*.js` | `alive_want` / `alive_list` / `alive_done` / `alive_drop`；到点自醒的 alive 定时器（不是 persona 留档里的 `schedule_*` 通用 cron 工具）。 |
+| 随机唤醒 | `src/willa/wander.js` | 隔一段随机给自己投一句，自己决定做什么。 |
+| QQ（OneBot） | `src/willa/qq.js`、`wake.js` | `qq_send` / `qq_read` / `qq_status` / `qq_wake_test`；可选 WS 收消息注入会话。 |
+| QQ 空间 | `src/willa/qzone.js` | 评论轮询（`qzoneEnabled`，默认关）。 |
+| worker | `src/willa/worker.js` | `worker_run` / `worker_status` / `worker_list`，spawn `dsh --profile headless` 子进程。 |
+| 新会话 | `src/willa/session.js` | `session_new`。 |
+| 看门脚本 | `persona/guard/` | Windows PowerShell 5.1 的可选小工具：起 `dsh web`、抓带令牌的地址、看门、两段式重启。 |
+| 筛 skill 的两支脚本 | `persona/scripts/` | `skill-usage.mjs` 从会话日志统计真实使用频率；`skill-lookup.mjs` 在常驻 / archive / off 里按关键词找 `SKILL.md`。 |
+| 客户端页面 | `src/persona/client.js`、`lib/client.js`、`locale/`、`icon.svg` | DSH web 的设置页；只请求宿主同源 `/api/dsh-willa/*`，不出外网。 |
+
+`enableWilla: true` 时共 **26 个工具**；四个后台（alive 定时器 / wake / wander / qzone 轮询）全用 `scope.effect` 建，插件重载不叠加。缺后端就少注册对应工具，不报错：QQ 没配 → 不出现 `qq_*`；`memoryEmbedUrl` 设空 → 不出现 `mem_recall` / `mem_note`（`mem_stats` 保留并显示「记忆未配置」）；找不到 `dsh` / `node` → 不出现 `worker_*`。纯本地的账始终在。
+
+## 依赖（这个包的，不按包分）
+
+**默认只开人设时不联网、不 spawn、不要外部进程。** 开了对应功能才需要下面这些，缺了就少几个工具，其余照常：
+
+| 用途 | 需要什么 | 说明 |
+|---|---|---|
+| QQ 收发、收消息唤醒 | 一个 OneBot v11 实现（SnowLuma / NapCat 之类）在本机监听 HTTP，以及它的正向 WebSocket | 本包只 `POST <qqHttpUrl>/<action>`、`new WebSocket(qqWsUrl)`；**不含 OneBot 的代码或二进制**。地址和 token 自己填。 |
+| QQ 空间轮询 | 同上，或用 `qzoneHttpUrl` + `qzoneToken` 单独指一个 OneBot | 默认关；开了才轮询。 |
+| 记忆的语义检索 | 任一本机 OpenAI 兼容的 `/v1/embeddings` 服务 | `memoryEmbedUrl` 默认 `http://127.0.0.1:8767/v1/embeddings`；没服务就设空串：`mem_recall` / `mem_note` 不注册，`mem_stats` 仍能看本地账。 |
+| worker 派活 | `dsh` CLI + `node` | `worker_run` 会 spawn `dsh --profile headless <task>`；找不到就不注册 `worker_*`。 |
+| guard 看门脚本 | Windows + Windows PowerShell 5.1 | 可选，不装不影响插件。只有配了通知才连本机 OneBot。 |
+| 两支筛 skill 脚本 | Node 22.15+ | 读 `sessions/**/session.v4.jsonl.zstd` 需要 `zlib.zstdDecompressSync`；零依赖，单独跑也行。 |
+
+**B 站不在这个包里**：没有任何 B 站接口调用；记忆里可能出现 `bilibili-video` 频道，那是别的插件写进去的数据，本包只读。桌面宠物同样走宿主或别的插件。
+
+## `persona/` 子目录是什么
+
+`persona/` 是**早期独立实现** `dsh-willa-persona` 0.1.0 的整套留档：人设、本地记忆、心账、轻量定时、随机唤醒，以及它自己的 `guard/`、`test/`、`README.md`、`README.zh.md`、`LESSONS.md`。
+
+- **不再单独发布**：它的 `package.json` 已标 `"private": true`，不要 `npm publish` 它。
+- **能力已经在 `dsh-willa` 里**：日常用装根包就行，别把两套人设同时启用，否则两段 persona 会一起进 systemPrompt。
+- **留档不是坏档**：`cd persona && npm test` 仍应 28 项全绿。
+- npm 包里只带 `persona/guard/` 和 `persona/scripts/` 这两个可选工具目录（单一来源，不复制第二份），**不带** `persona/lib`、`persona/test`，也不带 `persona/README.md`（guard 自己的 README 随 guard 走）。
+
+`persona/` 的数据目录名仍是 `dsh-willa-persona`（`<DSH_HOME>/storages/dsh-willa-persona/`）；根包的人设库在 `<DSH_HOME>/storages/dsh-willa/personas.json`，两者不自动互搬，要沿用旧库就把 `personaStore` 指过去，或用 `node scripts/migrate-persona-store.mjs`（默认 dry-run）。
 
 ## 目录
 
 ```text
 willa-persona/
-├── package.json          # private，workspaces: ["packages/*"]，只放脚本，不发布
-├── README.md
-├── README.zh.md
-├── LICENSE
-├── .gitignore            # 两边规则合并
-└── packages/
-    ├── dsh-willa-persona/
-    │   ├── lib/ test/ scripts/ guard/
-    │   ├── LESSONS.md
-    │   ├── cordis.patch.yml
-    │   ├── package.json
-    │   ├── LICENSE
-    │   └── README.md / README.zh.md
-    └── dsh-willa/
-        ├── lib/ src/ docs/ locale/ scripts/
-        ├── cordis.patch.yml
-        ├── package.json
-        ├── CHANGELOG.md / NOTICE / LICENSE / icon.svg
-        └── README.md / .gitignore
+├── package.json          # 唯一的包：dsh-willa 0.1.0
+├── README.md / README.zh.md
+├── LICENSE / NOTICE / CHANGELOG.md / icon.svg
+├── cordis.patch.yml
+├── lib/                  # 构建产物（= src 的复制，link/file 安装不用先 build）
+├── src/                  # 源码：persona/ + willa/ 26 个工具与四个后台
+├── locale/               # zh.json / en.json
+├── docs/                 # LOCAL-SETUP / PUBLISH / VERIFY
+├── scripts/              # build / smoke / preflight / privacy / selftest / migrate
+└── persona/              # 早期 dsh-willa-persona 留档（不单独发布）
+    ├── lib/ test/ guard/ scripts/
+    ├── LESSONS.md
+    ├── README.md / README.zh.md
+    ├── package.json
+    └── cordis.patch.yml
 ```
 
-## 隐私与安全
+## 测
 
-这个仓**不含**作者的本机路径、QQ 号、token 或任何私人记忆，数据只写本机 `DSH_HOME`。两个包对网络和外部进程的要求**不一样**，分开说：
+需要 Node 22.15+；测试本身不需要 `npm install`。
 
-| 包 | 要联网吗 | 要外部进程/工具吗 | 可选依赖 |
-|---|---|---|---|
-| `dsh-willa-persona` | **默认不发任何外部请求**：记忆默认走纯本地关键词/子串检索。只有显式配了 `embeddingEndpoint`，才会把记忆正文和查询词 POST 到**你指定的** OpenAI 兼容 `/v1/embeddings`。 | 不要。定时和随机唤醒用本包自己的 timer（宿主有 `ctx.schedule` 就借，没有也照跑），不 spawn 任何进程。 | `embeddingEndpoint`（OpenAI 兼容 embeddings 服务）；可选的 `guard\` 看门脚本（PowerShell，只在配了通知时连本机 OneBot `127.0.0.1`）。 |
-| `dsh-willa` | **开了对应功能才联网**：QQ 收发/读记录连你配的 OneBot HTTP，`wake` 连 OneBot 正向 WS，QQ 空间轮询连 OneBot HTTP，向量记忆 POST 到 `memoryEmbedUrl`（默认 `http://127.0.0.1:8767/v1/embeddings`）；`wake` 收到图片时还会按 OneBot 给的 URL 下载图片。默认 `enableWilla: false` 时这些都不发生。 | **worker 要 `dsh` + `node`，会 spawn `dsh --profile headless <task>` 子进程**；QQ / 空间要一个 OneBot v11 实现（SnowLuma / NapCat 之类）在本机监听端口。缺了就不注册对应工具，其余照常。 | OneBot v11 实现、OpenAI 兼容 embeddings 服务、`dsh` CLI + Node。 |
+```bash
+npm run preflight   # 构建 → 冒烟 → 隐私扫描 → 客户端包壳 → 打包清单
+npm test            # smoke
+npm run selftest    # 门房 / worker 回执链路（临时目录 + 假 dsh bin）
+cd persona && npm test   # 留档的 28 项
+npm pack --dry-run  # 看最终文件清单
+```
 
-**不开这些功能就不需要它们**：`dsh-willa` 默认 `enableWilla: false`，装完只得到人设库；`dsh-willa-persona` 默认 `embeddingEndpoint: ''`，从头到尾只读写本地 JSON。B 站不在两个包里：本仓没有 B 站调用，记忆里出现 `bilibili-video` 频道也只是读别的插件写进来的数据；作者的 B 站能力来自另行安装的插件（如 `dsh-plugin-bilibili`），与本仓无关。
+`preflight` 会检查包里没有 `persona/lib`、`persona/test`、`private/`、`*.tgz`，并核对 `lib/index.js`、`lib/client.js`、`cordis.patch.yml`、`locale/{zh,en}.json`、`icon.svg`、`src/`、`docs/`、`scripts/` 和 `persona/{guard,scripts}/` 都在。
 
-依据（按文件/函数）：
+## 配置与数据
 
-- persona 默认检索：`packages/dsh-willa-persona/lib/storage.js` 的 `recallMemory()`（关键词/子串计分）；唯一的外部请求是 `embedText()`，只有 `noteMemory()` / `searchMemory()` 在 `embeddingEndpoint` 非空时才调。
-- persona 定时：`lib/schedule.js` 的 `ScheduleEngine`（自带 timer + `schedules.json`）；宿主有 `ctx.schedule` 时按 `backend: host` 借用，没有就 `backend: local`。
-- dsh-willa QQ：`packages/dsh-willa/src/willa/qq.js` 的 `call()` → `POST <qqHttpUrl>/<action>`；`wake.js` 的 `watchOneBot()` → `new WebSocket(qqWsUrl)`。
-- dsh-willa 空间：`qzone.js` 的 `makeCall()` → `POST <OneBot>/<action>`（`qzoneHttpUrl` 或 `qzoneOnebotConfig`）。
-- dsh-willa 向量记忆：`memory.js` 的 `embed()` → `POST memoryEmbedUrl`；`memoryEmbedUrl` 设为空串才彻底关掉 `mem_recall` / `mem_note`。
-- dsh-willa worker：`worker.js` 的 `run()` → `spawn(dsh|node, ['--profile', 'headless', task])`；找不到 `dsh` 或 `node` 就不注册 `worker_*`。
-- dsh-willa 收图：`wake.js` 的 `saveImage()` → `fetch(图片 URL)`，URL 来自 OneBot 消息段（通常是腾讯图床），这是本包唯一可能访问外网的路径。
-- 客户端设置页 `lib/client.js` 只请求宿主同源 `/api/dsh-willa/*`，不出外网。
+常用键：
 
-## License
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `enablePersona` | `true` | 人设段落 + 设置页路由 |
+| `enableWilla` | `false` | 26 个工具与四个后台的总开关 |
+| `aliveEnabled` | `true` | alive 到点自醒 |
+| `wakeEnabled` | `false` | WS 收 QQ 消息注入会话，必须同时配 `wakeSessionId` |
+| `wanderEnabled` | `false` | 随机自醒 |
+| `qzoneEnabled` | `false` | QQ 空间评论轮询 |
+| `memoryEmbedUrl` | `http://127.0.0.1:8767/v1/embeddings` | 设空串 = 不注册 `mem_recall` / `mem_note`（`mem_stats` 保留） |
+| `personaStore` | 空 | 人设库路径；留空用 `<DSH_HOME>/storages/dsh-willa/personas.json` |
 
-MIT，见 [LICENSE](./LICENSE)。`dsh-willa` 的人设半侧来自 `dsh-persona-dafeiyu` 0.5.0（MIT），原版权声明见该包的 `NOTICE`。
+完整 40 个键的说明以 `src/config.js` 的 `DEFAULTS` 为准；旧配置兼容：顶层 `enabled: false` 同时关两半，`wake.enabled` 等旧嵌套键映射到 `wakeEnabled` 等拍平键。
+
+数据默认落 `<DSH_HOME>/storages/dsh-willa/`；删掉就是空库。写入用「临时文件 + fsync + rename」，坏 JSON 先改名成 `.corrupt-<时间戳>.json` 留档再按空库继续。
+
+## 隐私与许可
+
+仓库和 npm 包里**不含**作者的本机路径、QQ 号、token 或任何私人记忆；数据只写本机 `DSH_HOME`。`npm run privacy-check` 扫 `src/` 和 `lib/`，发布前再用同一组关键词做一次 `git grep` 复核。
+
+MIT，见 [LICENSE](./LICENSE)。人设半侧来自 `dsh-persona-dafeiyu` 0.5.0（MIT），原版权声明见 [NOTICE](./NOTICE)。

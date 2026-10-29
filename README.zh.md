@@ -1,42 +1,46 @@
-# dsh-willa-repo（中文短版）
+# dsh-willa（中文短版）
 
-一个仓，两个可单独安装的 DSH 插件包：
+一个仓库、一个 npm 包：仓库根就是 `dsh-willa` 0.1.0。人设默认可用；开 `enableWilla` 后才有记忆、心账、定时与随机唤醒。QQ（OneBot）、QQ 空间、worker、guard 和两支筛 skill 的脚本按需启用。
 
-- **`dsh-willa-persona`** —— 纯人设：人设注入、本地记忆、心账、轻量定时、随机唤醒；插件本体默认不发外部请求，记忆默认纯本地关键词检索（配了 `embeddingEndpoint` 才走向量），不装外部工具。
-- **`dsh-willa`** —— 完整版：人设半侧 + 可选 QQ 桥（OneBot）、worker 派活、QQ 空间轮询、客户端页面；默认只开人设半侧（`enableWilla: false`），QQ / 空间 / 向量记忆 / worker 都要另外配置或自备外部组件。
-
-选哪个：只要性子 + 记事 → `dsh-willa-persona`；要 QQ / 派活 / 空间 → `dsh-willa`。两个别同时启用。
-
-## 装（发布后）
+## 装
 
 ```bash
-npm i dsh-willa-persona
 npm i dsh-willa
-
-dsh plugin --profile <profile> add dsh-willa-persona
 dsh plugin --profile <profile> add dsh-willa
 ```
+
+本地开发把包名换成仓库根绝对路径。默认 `enablePersona: true` / `enableWilla: false`：装完只是一个人设库，不碰 QQ、记忆和后台任务。
+
+## 里面有什么
+
+- **人设**：Willa（大肥鱼）注入、称呼、设置页 `/api/dsh-willa/*` 三条路由。
+- **记忆 / 心账 / 人设卡 / 生活 / 能动性**：`enableWilla: true` 才挂；记忆要配 `memoryEmbedUrl`（OpenAI 兼容 embeddings）才注册 `mem_recall` / `mem_note`，没配只留 `mem_stats` / `mem_supersede`。
+- **定时 / 随机唤醒**：alive 定时器 + wander；`scope.effect` 建，重载不叠加。
+- **QQ（OneBot）**：`qq_*` 四个工具 + 可选 WS 收消息注入；**不含 OneBot 本体**。
+- **QQ 空间**：评论轮询，默认关。
+- **worker**：`worker_*` 三个工具，spawn `dsh --profile headless`。
+- **guard**：`persona/guard/` 的 Windows PowerShell 5.1 看门/重启脚本，可选。
+- **两支筛 skill 脚本**：`persona/scripts/skill-usage.mjs` 和 `skill-lookup.mjs`，零依赖。
+
+依赖表、配置键、数据位置和完整说明看 [README.md](./README.md)。
+
+## `persona/` 是什么
+
+早期独立实现 `dsh-willa-persona` 的整套留档：它的人设、记忆、心账、定时、随机唤醒，以及 `guard/`、`test/`、`LESSONS.md` 和两份 README。**不再单独发布**（`package.json` 已 `private: true`），能力已经在 `dsh-willa` 里；留档只为参考和对照，`cd persona && npm test` 仍应 28 项全绿。
+
+npm 包里只带 `persona/guard/` 和 `persona/scripts/` 这两个可选工具目录，不带 `persona/lib`、`persona/test`。
 
 ## 测
 
 ```bash
-npm test          # 根目录，跑两个包
-npm run preflight # dsh-willa 的发布前自检
+npm run preflight   # 构建 → 冒烟 → 隐私 → 客户端包壳 → 打包清单
+npm test
+npm run selftest
+cd persona && npm test
 ```
 
-## 文档
+## 依赖口径
 
-- 完整说明（中文）：[README.md](./README.md)
-- persona：[README](./packages/dsh-willa-persona/README.md) / [中文长文](./packages/dsh-willa-persona/README.zh.md) / [LESSONS](./packages/dsh-willa-persona/LESSONS.md)
-- dsh-willa：[README](./packages/dsh-willa/README.md) / [验证记录](./packages/dsh-willa/docs/VERIFY.md) / [CHANGELOG](./packages/dsh-willa/CHANGELOG.md)
-
-隐私口径：仓里不带本机路径、QQ 号、token 或私人记忆，数据只写本机 `DSH_HOME`。依赖按包分，别说成一个口径：
-
-| 包 | 要联网吗 | 要外部进程/工具吗 |
-|---|---|---|
-| `dsh-willa-persona` | 默认不发外部请求（纯本地关键词检索）；只有配了 `embeddingEndpoint` 才请求你指定的 embeddings 服务 | 不要；定时/唤醒用自带 timer，不 spawn 进程 |
-| `dsh-willa` | 开了功能才要：QQ/空间连本机 OneBot HTTP/WS，向量记忆连 `memoryEmbedUrl`，`wake` 收图会按 URL 下载图片 | worker 会 spawn `dsh --profile headless` 子进程；QQ/空间要 OneBot v11 实现 |
-
-**不开这些功能就不需要它们**（`dsh-willa` 默认 `enableWilla: false`，persona 默认 `embeddingEndpoint: ''`）。逐条代码依据见 [README.md 的依赖表](./README.md#隐私与安全)。
+默认不开 `enableWilla` 时不联网、不 spawn、不要外部进程。开了才需要：OneBot v11（QQ / 空间 / wake）、OpenAI 兼容 embeddings（记忆，配了才启用）、`dsh` + `node`（worker）、Windows PowerShell 5.1（guard）。B 站不在这个包里。
 
 MIT，见 [LICENSE](./LICENSE)。

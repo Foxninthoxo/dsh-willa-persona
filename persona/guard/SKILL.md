@@ -5,7 +5,7 @@ description: 用 Windows 计划任务看住 dsh web：起服务并抓带令牌�
 
 # dsh-guard —— 看住 dsh web
 
-一套脚本，全部 Windows PowerShell 5.1；五个主脚本参数一致，可以互相转发，另有一个 `autoconfig.ps1` 自动生成配置。本目录是 `dsh-willa-persona` 仓库里的 `guard\`，属于可选工具，不是插件运行时的一部分。
+一套脚本，全部 Windows PowerShell 5.1；五个主脚本参数一致，可以互相转发，另有一个 `autoconfig.ps1` 自动生成配置。本目录是 `dsh-willa` 包内 `persona/guard/` 的留档工具，属于可选工具，不是插件运行时的一部分。
 
 ## 先判断该用哪个
 
