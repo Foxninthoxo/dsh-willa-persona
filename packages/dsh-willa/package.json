@@ -1,7 +1,7 @@
 {
     "name": "dsh-willa",
     "version": "0.1.0",
-    "description": "人设库 + 可选 QQ / 记忆 / 状态工具 for DeepSeek Harness. A persona library with optional QQ, memory and companion tools.",
+    "description": "人设库 + 可选 QQ / 记忆 / 状态工具 for DeepSeek Harness。QQ 需自备 OneBot 实现（本机 HTTP/WS），向量记忆需自备 embeddings 服务，worker 会 spawn dsh headless 子进程。A persona library with optional QQ, memory and companion tools.",
     "keywords": [
         "deepseek-harness",
         "dsh",

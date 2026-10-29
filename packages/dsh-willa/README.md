@@ -35,18 +35,21 @@ profile 的 `cordis.patch.yml` 里会多出一行：
 
 ## 依赖（自己不打包，自己装）
 
-**本包不含任何 OneBot 实现的代码或二进制**，只跟它暴露的 HTTP / WebSocket 说话：
+**本包运行时不是纯离线**：开了 `enableWilla` 且配了对应后端，它会连本机 OneBot、请求 embeddings 服务、spawn `dsh` 子进程。默认 `enableWilla: false`，只做人设库时不发生这些。逐项：
 
 | 用途 | 需要什么 | 去哪拿 |
 |---|---|---|
-| QQ 收发（`qq_*` 工具、`wake`） | 一个 OneBot v11 实现（SnowLuma / NapCat 之类） | 各自官方 Releases 自行下载安装；SnowLuma 是第三方专有运行时，**不随本项目分发** |
+| QQ 收发（`qq_*` 工具） | 一个 OneBot v11 实现（SnowLuma / NapCat 之类）在本机监听 HTTP；本包只 `POST <qqHttpUrl>/<action>` | 各自官方 Releases 自行下载安装；SnowLuma 是第三方专有运行时，**不随本项目分发** |
+| QQ 收消息唤醒（`wake`） | 同一个 OneBot 的正向 WebSocket 地址（`qqWsUrl`）；收到图片会按消息里的 URL 下载到 `blobs/qq-inbox` | 同上 |
 | QQ 空间轮询（`qzone`） | 同上；还要它的 `onebot_*.json`，或直接给 `qzoneHttpUrl` + `qzoneToken` | 同上 |
-| 记忆的语义检索 | 任一本机 OpenAI 兼容的 `/embeddings` 服务 | `memoryEmbedUrl` 指过去即可；不指就只留 `mem_stats`（本地账，仍能看） |
+| 记忆的语义检索 | 任一本机 OpenAI 兼容的 `/embeddings` 服务 | `memoryEmbedUrl` 默认指向 `http://127.0.0.1:8767/v1/embeddings`；没这个服务就把它设为空串，`mem_recall` / `mem_note` 不注册，`mem_stats` 仍能看本地账 |
+| 派活（`worker_*`） | `dsh` CLI + `node` | `worker_run` 会 spawn `dsh --profile headless <task>`；找不到 `dsh` 或 `node` 就不注册 `worker_*` |
 
-装好 OneBot 端之后，把地址和 token 填进配置（`qqHttpUrl` / `qqWsUrl` / `qqToken` / `qqSelfId`），
-**本包不需要知道它装在哪**。没配就只是少几个工具，其余照常。
+**本包不含任何 OneBot 实现的代码或二进制**，只跟它暴露的 HTTP / WebSocket 说话。装好 OneBot 端之后，把地址和 token 填进配置（`qqHttpUrl` / `qqWsUrl` / `qqToken` / `qqSelfId`），**本包不需要知道它装在哪**。没配就只是少几个工具，其余照常。
 
-## 开关（39 个配置键，常用这几个）
+**B 站不在本包**：本包没有任何 B 站接口调用；记忆里可能出现 `bilibili-video` 频道，那是作者另外装的插件写进去的数据，本包只读。桌面宠物、B 站视频这类能力都走宿主/别的插件，与本包无关。
+
+## 开关（40 个配置键，常用这几个）
 
 | 键 | 默认 | 说明 |
 |---|---|---|
@@ -58,7 +61,7 @@ profile 的 `cordis.patch.yml` 里会多出一行：
 | `qzoneEnabled` | `false` | QQ 空间评论轮询 |
 
 **缺后端就少注册工具**（不是报错）：QQ 没配 → 不出现 `qq_send/qq_read/qq_status/qq_wake_test`；
-embed 没配 → 不出现 `mem_recall/mem_note`（`mem_stats` 保留并显示「记忆未配置」）；
+`memoryEmbedUrl` 设成空串 → 不出现 `mem_recall/mem_note`（`mem_stats` 保留并显示「记忆未配置」）；
 `dsh`/`node` 拿不到 → 不出现 `worker_run/worker_status/worker_list`。纯本地的账（心账/人设卡/生活/能动性）始终在。
 
 旧配置兼容：顶层 `enabled:false` 同时关掉两半；`wake.enabled` 等旧嵌套开关映射到 `wakeEnabled` 等拍平键。

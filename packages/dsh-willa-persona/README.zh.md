@@ -1,7 +1,7 @@
 # dsh-willa-persona（中文说明）
 
 DeepSeek Harness（DSH）插件：注入「Willa / 大肥鱼」人设，附带本地记忆、心账、轻量定时和随机唤醒。
-默认不联网、不安装外部工具，也不附带任何私人数据。完整说明见 [README.md](./README.md)。
+插件本体默认不发外部请求，记忆默认纯本地关键词检索，只有填了 `embeddingEndpoint` 才走向量；不安装外部工具，也不附带任何私人数据。完整说明见 [README.md](./README.md)。
 
 ## 爱好
 

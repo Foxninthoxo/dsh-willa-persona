@@ -10,7 +10,7 @@
  *   4. 注册本包自带的轻量定时和随机唤醒。
  *
  * 记忆、心账、称呼都落在 `<DSH_HOME>/storages/dsh-willa-persona/`，空库起步。
- * 默认不联网、不装插件、不接任何外部服务；embeddingEndpoint 填了才走向量。
+ * 默认不发外部请求、不装插件、不接任何外部服务；embeddingEndpoint 填了才走向量（storage.js 的 embedText）。
  */
 
 const storage = require('./storage.js')

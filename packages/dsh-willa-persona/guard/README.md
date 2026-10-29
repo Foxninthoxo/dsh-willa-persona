@@ -4,7 +4,7 @@
 
 这是 `dsh-willa-persona` 包里的 `guard\` 目录，属于**可选**的 Windows 小工具，不是插件运行时的一部分。下面所有命令都在本目录（`guard\`）里执行；从包根（`packages/dsh-willa-persona`）跑就把 `.\` 换成 `guard\`。
 
-只面向 Windows + Windows PowerShell 5.1。没有外部依赖，不联网（除了本机 127.0.0.1）。
+只面向 Windows + Windows PowerShell 5.1。没有外部依赖，也不连外网；只有配了 OneBot 通知时，会请求本机 `127.0.0.1` 的 OneBot HTTP。
 
 ## 它解决什么问题
 

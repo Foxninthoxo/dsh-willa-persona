@@ -1,7 +1,7 @@
 {
   "name": "dsh-willa-persona",
   "version": "0.1.0",
-  "description": "DeepSeek Harness 插件：内置 Willa（大肥鱼）人设，带本地记忆、心账、轻量定时与随机唤醒，默认不联网、不装外部工具。",
+  "description": "DeepSeek Harness 插件：内置 Willa（大肥鱼）人设，带本地记忆、心账、轻量定时与随机唤醒；插件本体默认不发外部请求，记忆默认本地关键词检索（配 embeddingEndpoint 才走向量），不装外部工具。",
   "type": "commonjs",
   "main": "lib/index.js",
   "exports": {
