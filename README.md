@@ -1,6 +1,6 @@
 # dsh-willa
 
-DeepSeek Harness（DSH）的**一个**插件包：人设、记忆、心账、alive 定时与随机唤醒，外加可选的 QQ（OneBot）、QQ 空间、worker 派活、Windows 看门脚本和两支筛 skill 的小工具。
+DeepSeek Harness（DSH）的**一个**插件包：人设、记忆、心账、alive 定时与随机唤醒，外加可选的 QQ（OneBot）、QQ 空间、worker 派活、Windows 看门脚本和两支筛 skill 的小工具。仓库只作源码与本地安装用，**暂不发布到 npm**。
 
 仓库根就是包根，`package.json` 里只有 `dsh-willa` 这一个包。默认只开人设半侧（`enablePersona: true`，`enableWilla: false`）：装完只得到一个人设库，不碰你的 QQ、记忆和后台任务。
 
@@ -46,7 +46,7 @@ profile 的 `cordis.patch.yml` 里会多一行：
 | 心账 | `src/willa/affinity.js` | `affinity_get` / `affinity_adjust` / `affinity_slot` / `affinity_list` / `affinity_migrate`。 |
 | 人设卡 | `src/willa/person.js` | `person_get` / `person_list` / `person_upsert`。 |
 | 生活 | `src/willa/life.js` | `life_now` / `life_set`。 |
-| 定时 / 能动性 | `src/willa/alive*.js` | `alive_want` / `alive_list` / `alive_done` / `alive_drop`；到点自醒的 alive 定时器（不是 persona 留档里的 `schedule_*` 通用 cron 工具）。 |
+| 定时 / 能动性 | `src/willa/alive*.js` | `alive_want` / `alive_list` / `alive_done` / `alive_drop`；到点自醒的 alive 定时器（不是通用 cron 工具）。 |
 | 随机唤醒 | `src/willa/wander.js` | 隔一段随机给自己投一句，自己决定做什么。 |
 | QQ（OneBot） | `src/willa/qq.js`、`wake.js` | `qq_send` / `qq_read` / `qq_status` / `qq_wake_test`；可选 WS 收消息注入会话。 |
 | QQ 空间 | `src/willa/qzone.js` | 评论轮询（`qzoneEnabled`，默认关）。 |
@@ -73,17 +73,6 @@ profile 的 `cordis.patch.yml` 里会多一行：
 
 **B 站不在这个包里**：没有任何 B 站接口调用；记忆里可能出现 `bilibili-video` 频道，那是别的插件写进去的数据，本包只读。桌面宠物同样走宿主或别的插件。
 
-## `persona/` 子目录是什么
-
-`persona/` 是**早期独立实现** `dsh-willa-persona` 0.1.0 的整套留档：人设、本地记忆、心账、轻量定时、随机唤醒，以及它自己的 `guard/`、`test/`、`README.md`、`README.zh.md`、`LESSONS.md`。
-
-- **不再单独发布**：它的 `package.json` 已标 `"private": true`，不要 `npm publish` 它。
-- **能力已经在 `dsh-willa` 里**：日常用装根包就行，别把两套人设同时启用，否则两段 persona 会一起进 systemPrompt。
-- **留档不是坏档**：`cd persona && npm test` 仍应 28 项全绿。
-- npm 包里只带 `persona/guard/` 和 `persona/scripts/` 这两个可选工具目录（单一来源，不复制第二份），**不带** `persona/lib`、`persona/test`，也不带 `persona/README.md`（guard 自己的 README 随 guard 走）。
-
-`persona/` 的数据目录名仍是 `dsh-willa-persona`（`<DSH_HOME>/storages/dsh-willa-persona/`）；根包的人设库在 `<DSH_HOME>/storages/dsh-willa/personas.json`，两者不自动互搬，要沿用旧库就把 `personaStore` 指过去，或用 `node scripts/migrate-persona-store.mjs`（默认 dry-run）。
-
 ## 目录
 
 ```text
@@ -95,14 +84,11 @@ willa-persona/
 ├── lib/                  # 构建产物（= src 的复制，link/file 安装不用先 build）
 ├── src/                  # 源码：persona/ + willa/ 26 个工具与四个后台
 ├── locale/               # zh.json / en.json
-├── docs/                 # LOCAL-SETUP / PUBLISH / VERIFY
+├── docs/                 # LOCAL-SETUP / PUBLISH / VERIFY / VERSION-AUDIT
 ├── scripts/              # build / smoke / preflight / privacy / selftest / migrate
-└── persona/              # 早期 dsh-willa-persona 留档（不单独发布）
-    ├── lib/ test/ guard/ scripts/
-    ├── LESSONS.md
-    ├── README.md / README.zh.md
-    ├── package.json
-    └── cordis.patch.yml
+└── persona/              # 可选工具目录
+    ├── guard/            # Windows 看门脚本
+    └── scripts/          # 两支筛 skill 脚本
 ```
 
 ## 测
@@ -113,7 +99,7 @@ willa-persona/
 npm run preflight   # 构建 → 冒烟 → 隐私扫描 → 客户端包壳 → 打包清单
 npm test            # smoke
 npm run selftest    # 门房 / worker 回执链路（临时目录 + 假 dsh bin）
-cd persona && npm test   # 留档的 28 项
+cd persona && npm test   # 子目录自测（28 项）
 npm pack --dry-run  # 看最终文件清单
 ```
 
@@ -140,6 +126,6 @@ npm pack --dry-run  # 看最终文件清单
 
 ## 隐私与许可
 
-仓库和 npm 包里**不含**作者的本机路径、QQ 号、token 或任何私人记忆；数据只写本机 `DSH_HOME`。`npm run privacy-check` 扫 `src/` 和 `lib/`，发布前再用同一组关键词做一次 `git grep` 复核。
+仓库和打包产物里**不含**作者的本机路径、QQ 号、token 或任何私人记忆；数据只写本机 `DSH_HOME`。`npm run privacy-check` 扫 `src/` 和 `lib/`，同一组关键词也可以用 `git grep` 复核。
 
 MIT，见 [LICENSE](./LICENSE)。人设半侧来自 `dsh-persona-dafeiyu` 0.5.0（MIT），原版权声明见 [NOTICE](./NOTICE)。

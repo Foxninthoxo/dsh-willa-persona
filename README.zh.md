@@ -1,6 +1,6 @@
 # dsh-willa（中文短版）
 
-一个仓库、一个 npm 包：仓库根就是 `dsh-willa` 0.1.0。人设默认可用；开 `enableWilla` 后才有记忆、心账、定时与随机唤醒。QQ（OneBot）、QQ 空间、worker、guard 和两支筛 skill 的脚本按需启用。
+一个仓库、一个包：仓库根就是 `dsh-willa` 0.1.0，只作源码与本地安装用，**暂不发布到 npm**。人设默认可用；开 `enableWilla` 后才有记忆、心账、定时与随机唤醒。QQ（OneBot）、QQ 空间、worker、guard 和两支筛 skill 的脚本按需启用。
 
 ## 装
 
@@ -24,19 +24,13 @@ dsh plugin --profile <profile> add dsh-willa
 
 依赖表、配置键、数据位置和完整说明看 [README.md](./README.md)。
 
-## `persona/` 是什么
-
-早期独立实现 `dsh-willa-persona` 的整套留档：它的人设、记忆、心账、定时、随机唤醒，以及 `guard/`、`test/`、`LESSONS.md` 和两份 README。**不再单独发布**（`package.json` 已 `private: true`），能力已经在 `dsh-willa` 里；留档只为参考和对照，`cd persona && npm test` 仍应 28 项全绿。
-
-npm 包里只带 `persona/guard/` 和 `persona/scripts/` 这两个可选工具目录，不带 `persona/lib`、`persona/test`。
-
 ## 测
 
 ```bash
 npm run preflight   # 构建 → 冒烟 → 隐私 → 客户端包壳 → 打包清单
 npm test
 npm run selftest
-cd persona && npm test
+cd persona && npm test   # 子目录自测（28 项）
 ```
 
 ## 依赖口径

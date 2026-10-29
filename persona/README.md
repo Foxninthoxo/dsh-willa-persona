@@ -1,8 +1,6 @@
 # dsh-willa-persona
 
-> **留档说明（2026-10-29）**：本目录是 `dsh-willa` 包内的早期独立实现，作为留档与参考保留，**不再单独发布**；它的能力已经在 `dsh-willa` 里。下面的安装、配置说明是当时的原文，只作参考。
-
-安装（留档原文，已不再单独发布）：`dsh plugin --profile <profile> add dsh-willa-persona`
+安装（npm 发布后）：`dsh plugin --profile <profile> add dsh-willa-persona`
 支持的 DSH 版本：`>=0.2.0 <0.4.0`
 
 DeepSeek Harness（DSH）插件：把「Willa / 大肥鱼」的人设做成 systemPrompt 注入，另外带一套**本地**记忆库、心账，以及本包自带的轻量定时和随机唤醒。

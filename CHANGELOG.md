@@ -19,7 +19,7 @@
 - 新增 `npm run selftest`（`scripts/selftest-door-worker.mjs`）：插件入口 1 项 + 门房 7 例 +
   worker 回执，只碰临时目录、假 dsh bin。
 - 改成单包布局：仓库根就是 `dsh-willa`，删掉 `packages/` 与 npm workspaces；
-  原 `dsh-willa-persona` 整套移入 `persona/` 留档（`private: true`，不再单独发布）。
+  原 `dsh-willa-persona` 整套移入 `persona/`（`private: true`）。
 - `files` 扩到 `src/`、`docs/`、`scripts/`、`persona/guard/`、`persona/scripts/`；
   `persona/lib`、`persona/test` 明确排除。preflight 的打包清单同步改口径。
 - 根 README 重写成「一个包装什么」，依赖表按本包真实行为重写；根 `guard:install`
@@ -27,7 +27,7 @@
 
 ## 0.1.0 — 2026-10-29
 
-第一个可发布版本：把 `willa-dsh`（26 个工具 + 四个后台）和 `dsh-persona-dafeiyu`（人设库）合成一个包。
+第一个版本：把 `willa-dsh`（26 个工具 + 四个后台）和 `dsh-persona-dafeiyu`（人设库）合成一个包。
 
 **对外默认**：只开人设（`enablePersona: true`），私活全关（`enableWilla: false`）。
 装了就是一个人设库；用户的 QQ、记忆、后台任务一概不碰。
@@ -44,7 +44,7 @@
   全部用 `scope.effect` 建，**插件重载不叠加**。
 - **缺后端就不注册对应工具**：QQ 没配 → 不出现 `qq_*`；embed 没配 → 只剩 `mem_stats`（显示「记忆未配置」）；
   `dsh`/`node` 找不到 → 不出现 `worker_*`。纯本地的账始终在。
-- 26 处本机硬编码全部改成配置项（39 个键），没有再读别人的配置文件。
+- 26 处本机硬编码全部改成配置项（40 个键），没有再读别人的配置文件。
 
 ### 工程
 - `npm run preflight`：构建 → 冒烟 → 隐私扫描 → 客户端包壳/元数据 → 打包清单，一条命令跑完。
